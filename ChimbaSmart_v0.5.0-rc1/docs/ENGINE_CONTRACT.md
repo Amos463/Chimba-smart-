@@ -14,4 +14,11 @@ Kila engine inapokea `dataset.build()` yenye CRS iliyotajwa, raw collar/survey/i
 | `pygslib` | Haijakamilika | Inahitaji compositing, domains, downhole survey/desurveying na assay QA/QC. |
 | `pygimli` | Haijakamilika | Inahitaji method-specific measurements na electrode/sensor geometry. |
 
+## Availability verification 2026-11-24
+
+- PyKrige is importable and `test_optional_engines.py` ran as part of the backend suite.
+- GemPy, LoopStructural, PyGSLIB and pyGIMLi are not installed in the current environment.
+- Their registry entries remain `adapter_ready=false` and `NotImplementedError`/validation unavailable behavior is retained.
+- No synthetic or fabricated results are reported for these engines.
+
 `adapter_ready` ni false kwa engines zisizotekelezwa. Mfumo hautazipokea kama kazi zilizokamilika. Vizingiti vya sampuli ni vya awali; mtaalamu lazima achague variogram, QA/QC na model assumptions.

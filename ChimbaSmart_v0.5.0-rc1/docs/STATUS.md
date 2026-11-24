@@ -49,3 +49,17 @@ Tumia `scripts/codespaces_verify.sh` iliyo ndani ya ZIP. Itasakinisha requiremen
 - Added refresh-session hashes, rotation/reuse revocation, password-reset tokens, audit events and UTC-normalization fixes.
 - Added request size, CORS, security-header and readiness middleware.
 - Remaining critical production work: Redis-backed throttling, durable RQ/Celery jobs, complete role matrix, live PostgreSQL/PostGIS testing, backup/restore proof, conflict resolution UI and production cross-platform builds.
+
+## Release continuation (2026-11-24)
+
+- PASS: live PostgreSQL/PostGIS migration test on disposable PostGIS 16-3.4.
+- PASS: disposable PostgreSQL backup and restore marker verification.
+- PASS: Redis-backed throttling dependency, RQ worker and Docker Compose worker service.
+- PASS: configurable project permissions for owner, manager, geologist, technician, reviewer and read-only roles.
+- PASS: server conflict listing and keep-server/replace/reject resolution API.
+- PASS: PWA IndexedDB conflict archive and pull cursor schema upgrade.
+- PARTIAL: PWA conflict resolution controls require browser end-to-end verification.
+- PARTIAL: Flutter remains a SQLite skeleton; native modules and production sync are incomplete.
+- BLOCKED: Flutter SDK unavailable.
+- BLOCKED: GemPy, LoopStructural, PyGSLIB and pyGIMLi libraries unavailable.
+- BLOCKED: iOS requires macOS/Xcode and owner signing credentials.

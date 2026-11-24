@@ -22,6 +22,15 @@
 - Added duplicate-coordinate and non-projected CRS guards; Arc 1960 UTM limited to southern zones 35S–37S.
 - Added migration 0006 for attachment content deduplication; verified fresh SQLite migration chain and Alembic metadata parity.
 
+## Release continuation checkpoint
+
+- Verified live PostgreSQL/PostGIS migration on disposable PostGIS 16-3.4.
+- Verified disposable PostgreSQL dump and restore.
+- Added Redis/RQ dependencies and Docker Compose worker service.
+- Added configurable project-role permissions and server conflict resolution.
+- Added PWA IndexedDB conflict archive upgrade.
+- Documented unsupported heavy-engine libraries and unavailable Flutter toolchain as blockers rather than operational features.
+
 ## Commercial hardening checkpoint
 
 - Added migration 0007 for refresh sessions, password-reset tokens and audit events.

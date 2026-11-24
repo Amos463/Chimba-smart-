@@ -20,3 +20,9 @@ Do not restore into a live database. Restore to an isolated PostgreSQL/PostGIS i
 ## Verification
 
 Every restore test must restore a disposable database and a disposable attachment copy, execute `alembic upgrade head`, run health/readiness and selected API tests, verify foreign-key and spatial checks, and record the verification result.
+
+## Verified 2026-11-24
+
+A disposable `postgis/postgis:16-3.4` database was used to create `backup_marker`, create a custom-format `pg_dump`, restore into `chimbasmart_restore_test`, and confirm `SELECT value FROM backup_marker WHERE id=42` returned `verified`.
+
+This proves basic dump/restore portability in the current environment. It does not replace full migration, attachment, disaster-recovery or application E2E restoration testing.
