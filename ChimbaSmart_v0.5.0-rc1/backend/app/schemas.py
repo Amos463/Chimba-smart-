@@ -26,3 +26,6 @@ class RefreshIn(BaseModel): refresh_token:str=Field(min_length=32,max_length=512
 class LogoutIn(BaseModel): refresh_token:str|None=Field(None,min_length=32,max_length=512)
 class PasswordResetRequestIn(BaseModel): username:str=Field(min_length=3,max_length=100)
 class PasswordResetConfirmIn(BaseModel): token:str=Field(min_length=32,max_length=512); password:str=Field(min_length=12,max_length=200)
+class ConflictResolveIn(BaseModel):
+    resolution:str=Field(pattern='^(keep_server|replace_server|rejected)$')
+    payload:dict[str,Any]|None=None

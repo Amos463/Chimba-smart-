@@ -353,6 +353,46 @@ def get_attachment(pid:str,attachment_id:int,user:User=Depends(current_user),db:
     base=os.getenv('ATTACHMENTS_DIR',os.path.join(os.path.dirname(__file__),'..','data','attachments')); path=os.path.join(base,a.storage_key)
     if not os.path.isfile(path): raise HTTPException(404,'Faili halipo kwenye hifadhi')
     return FileResponse(path,media_type=a.media_type,filename=a.filename)
+
+
+@app.get('/projects/{pid}/conflicts')
+def list_conflicts(pid:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    require_permission(db,user,pid,'review')
+    rows=db.query(SyncConflict).filter_by(project_id=pid,resolution='unresolved').order_by(SyncConflict.created_at_utc).all()
+    return [{'id':r.id,'record_uuid':r.record_uuid,'device_id':r.device_id,
+             'incoming_json':json.loads(r.incoming_json),'existing_json':json.loads(r.existing_json),
+             'created_at_utc':r.created_at_utc,'resolution':r.resolution} for r in rows]
+
+
+@app.post('/projects/{pid}/conflicts/{conflict_id}/resolve')
+def resolve_conflict(pid:str,conflict_id:int,b:ConflictResolveIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    require_permission(db,user,pid,'review')
+    conflict=db.query(SyncConflict).filter_by(id=conflict_id,project_id=pid).first()
+    if not conflict:
+        raise HTTPException(404,'Conflict haipo')
+    if conflict.resolution!='unresolved':
+        raise HTTPException(409,'Conflict tayari imeshughulikiwa')
+    record=db.query(Record).filter_by(project_id=pid,record_uuid=conflict.record_uuid).first()
+    if b.resolution=='keep_server':
+        conflict.resolution='keep_server'
+    elif b.resolution=='rejected':
+        conflict.resolution='rejected'
+    elif b.resolution=='replace_server':
+        if not b.payload:
+            raise HTTPException(400,'payload inahitajika wakati wa replace_server')
+        if not record:
+            raise HTTPException(409,'Rekodi ya seva haipo')
+        payload=b.payload
+        h=sha(payload)
+        record.payload_json=canon(payload)
+        record.content_hash=h
+        record.server_version=(record.server_version or 1)+1
+        record.updated_at_utc=datetime.now(timezone.utc)
+        conflict.resolution='replace_server'
+    audit(db,None,'sync.conflict_resolved',actor_id=user.id,project_id=pid,
+          resource_type='sync_conflict',resource_id=str(conflict.id),details={'resolution':conflict.resolution})
+    db.commit()
+    return {'id':conflict.id,'record_uuid':conflict.record_uuid,'resolution':conflict.resolution}
 @app.get('/engines')
 def engines(user:User=Depends(current_user)):
     return [{'name':e.name,'version':e.version,'requires':e.requires,'library_installed':e.library_installed,'adapter_ready':e.adapter_ready,'warnings':e.warnings} for e in ENGINES.values()]

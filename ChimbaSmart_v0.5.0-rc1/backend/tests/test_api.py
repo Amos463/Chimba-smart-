@@ -233,3 +233,19 @@ def test_redis_rate_limit_is_available(client):
     r=redis.Redis(host='127.0.0.1',port=56379,decode_responses=True)
     r.ping()
     r.incr('test:rate-limit')
+
+
+def test_conflict_resolution_keep_server(ctx,client):
+    h,p=ctx
+    first=rec(p,'collar',collar('CONFLICT-1',0))
+    assert st(push(client,h,first))==['accepted']
+    changed=dict(first); changed['payload']=collar('CONFLICT-1',1)
+    ack=push(client,h,changed).json()['accepted'][0]
+    assert ack['status']=='conflict'
+    listing=client.get(f'/projects/{p}/conflicts',headers=h)
+    assert listing.status_code==200 and listing.json()[0]['record_uuid']==first['record_uuid']
+    resolved=client.post(
+        f"/projects/{p}/conflicts/{listing.json()[0]['id']}/resolve",
+        json={'resolution':'keep_server'},headers=h)
+    assert resolved.status_code==200
+    assert resolved.json()['resolution']=='keep_server'
