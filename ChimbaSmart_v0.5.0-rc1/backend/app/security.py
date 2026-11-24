@@ -7,4 +7,8 @@ def verify_password(p:str,h:str)->bool:
     except ValueError: return False
 def create_token(uid:str)->str:
     return jwt.encode({'sub':uid,'exp':datetime.now(timezone.utc)+timedelta(minutes=ACCESS_TOKEN_MINUTES),'type':'access','jti':__import__('uuid').uuid4().hex},JWT_SECRET,algorithm=JWT_ALGORITHM)
-def decode_token(t:str)->dict: return jwt.decode(t,JWT_SECRET,algorithms=[JWT_ALGORITHM])  # inatupa jwt.PyJWTError
+def decode_token(t:str)->dict:
+    payload=jwt.decode(t,JWT_SECRET,algorithms=[JWT_ALGORITHM])
+    if payload.get('type')!='access':
+        raise jwt.InvalidTokenError('Token si access token')
+    return payload

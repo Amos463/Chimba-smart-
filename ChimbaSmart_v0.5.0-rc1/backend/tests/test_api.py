@@ -1,5 +1,18 @@
-import json
+import json, os, pytest
 from conftest import *
+
+
+@pytest.fixture(autouse=True)
+def redis_test_isolation():
+    if os.getenv('REDIS_URL'):
+        import redis
+        client=redis.Redis.from_url(os.environ['REDIS_URL'],decode_responses=True)
+        client.flushdb()
+    yield
+    if os.getenv('REDIS_URL'):
+        import redis
+        client=redis.Redis.from_url(os.environ['REDIS_URL'],decode_responses=True)
+        client.flushdb()
 def push(c,h,*r): return c.post('/sync/push',json={'records':list(r)},headers=h)
 def st(res): return [a['status'] for a in res.json()['accepted']]
 def test_login_and_throttle(client):
@@ -228,6 +241,7 @@ def test_configurable_project_role_permissions(ctx,client):
     assert client.post('/jobs',json={'project_id':p,'engine':'trend2d'},headers=technician_headers).status_code==403
 
 
+@pytest.mark.skipif(not os.getenv('REDIS_URL'),reason='REDIS_URL haijawekwa')
 def test_redis_rate_limit_is_available(client):
     import redis
     r=redis.Redis(host='127.0.0.1',port=56379,decode_responses=True)

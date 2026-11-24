@@ -77,6 +77,23 @@ def distributed_throttle(key,limit,window_s):
         raise
     except Exception:
         return
+
+
+def distributed_record_failure(key,limit,window_s):
+    client=redis_client()
+    if client is None:
+        return
+    try:
+        now=int(time.time()); bucket=f'rate:{key}:{now//window_s}'
+        count=client.incr(bucket)
+        if count==1:
+            client.expire(bucket,window_s)
+        if count>limit:
+            raise HTTPException(429,'Majaribio mengi. Subiri kisha jaribu tena.')
+    except HTTPException:
+        raise
+    except Exception:
+        return
 FAILS=collections.defaultdict(list)  # kwenye kumbukumbu ya process moja; prod yenye workers nyingi: tumia Redis
 
 
@@ -135,11 +152,11 @@ def login(b:LoginIn,request:Request,db:Session=Depends(get_db)):
     user_key=f'user:{username}:ip:{ip}'
     ip_key=f'ip:{ip}'
     throttle(user_key,config.LOGIN_MAX_FAILS); throttle(ip_key,config.LOGIN_IP_MAX_FAILS)
-    distributed_throttle(user_key,config.LOGIN_MAX_FAILS,config.LOGIN_WINDOW_S)
-    distributed_throttle(ip_key,config.LOGIN_IP_MAX_FAILS,config.LOGIN_WINDOW_S)
     u=db.query(User).filter(User.username==username).first()
     if not u or not verify_password(b.password,u.password_hash):
         now=time.time(); FAILS[user_key].append(now); FAILS[ip_key].append(now)
+        distributed_record_failure(user_key,config.LOGIN_MAX_FAILS,config.LOGIN_WINDOW_S)
+        distributed_record_failure(ip_key,config.LOGIN_IP_MAX_FAILS,config.LOGIN_WINDOW_S)
         raise HTTPException(401,'Jina au nenosiri si sahihi')
     FAILS.pop(user_key,None); FAILS.pop(ip_key,None)
     raw_refresh=secrets.token_urlsafe(48)
@@ -419,7 +436,7 @@ def new_job(b:JobIn,bg:BackgroundTasks,user:User=Depends(current_user),db:Sessio
     if existing:
         return {'id':existing.id,'status':existing.status,'deduplicated':True,'input_hash':existing.input_hash}
     j=Job(id=str(uuid.uuid4()),project_id=b.project_id,engine=b.engine,params_json=json.dumps(b.params),requested_by=user.id); db.add(j); db.commit()
-    if config.REDIS_URL:
+    if config.REDIS_URL and config.ENV=='prod':
         try:
             from redis import Redis
             from rq import Queue
