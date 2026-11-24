@@ -15,7 +15,7 @@ Baseline date: 2026-11-24.
 | Backup/restore | PASS | Disposable PostgreSQL dump/restore marker verified |
 | PWA | PARTIAL | IndexedDB, push/pull, photos and conflict archive; browser smoke test pending |
 | Flutter | PARTIAL | Flutter 3.38.5 analyzes and tests successfully; native local schema/API workflows remain incomplete |
-| Heavy engines | BLOCKED | Libraries absent; truthful unavailable adapters remain |
+| Heavy engines | PARTIAL | GemPy, LoopStructural and pyGIMLi execute real synthetic tests; PyGSLIB blocked; full production geological validation pending |
 | Android APK/AAB | PARTIAL | Release APK/AAB built successfully; artifacts use the Android debug certificate until production signing is configured |
 | Web build | PASS | Release web build completed under `mobile/build/web/` |
 | iOS | BLOCKED | macOS/Xcode/signing unavailable |
@@ -28,10 +28,10 @@ Baseline date: 2026-11-24.
 - idw: adapter ready; runtime tested.
 - downhole_composite: adapter ready; runtime tested.
 - pykrige: adapter ready and library installed; runtime tested.
-- gempy: adapter unavailable; library not installed.
-- loopstructural: adapter unavailable; library not installed.
-- pygslib: adapter unavailable; library not installed.
-- pygimli: adapter unavailable; library not installed.
+- gempy: adapter ready for explicit-contact 3D models; GemPy 2026.0.3 runtime tested.
+- loopstructural: adapter ready for implicit foliation; LoopStructural 1.12.0 runtime tested on Claudius data.
+- pygslib: blocked; no installable PyPI/source distribution established.
+- pygimli: adapter ready for ERT forward modelling; pyGIMLi 1.6.1 runtime tested. Inversion remains pending.
 
 ## Independent final audit 2026-11-24
 
@@ -45,6 +45,11 @@ Exact verification:
 - Alembic 0001-0007 and metadata parity: passed.
 - Python compileall and PWA JavaScript syntax: passed.
 - Docker Compose validation: passed.
+- Open-source engine synthetic suite: 4 passed.
+- GemPy: real 2026.0.3 implicit model compute passed.
+- LoopStructural: real Claudius synthetic model returned finite values.
+- pyGIMLi: real synthetic ERT forward model returned 3 positive values.
+- PyGSLIB: blocked because no package/source distribution is available.
 - Disposable PostgreSQL dump/restore: passed for a marker row.
 - Flutter analyze: passed with no issues.
 - Flutter test: passed.

@@ -1,0 +1,3 @@
+gempy==2026.0.3
+LoopStructural==1.12.0
+pygimli==1.6.1

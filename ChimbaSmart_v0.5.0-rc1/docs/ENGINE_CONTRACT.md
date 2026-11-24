@@ -9,10 +9,10 @@ Kila engine inapokea `dataset.build()` yenye CRS iliyotajwa, raw collar/survey/i
 | `idw` | Imeandikwa + tests zinahitajika | IDW grid ya uchunguzi kwa NumPy; si kriging. |
 | `downhole_composite` | Imeandikwa | Length-weighted compositing ya downhole assay intervals; haifanyi desurveying wala domain estimation. |
 | `pykrige` | Adapter imeandikwa; dependency ya hiari | Ordinary Kriging kupitia PyKrige; inahitaji Codespaces runtime validation na variogram review. |
-| `gempy` | Haijakamilika | Inahitaji stratigraphic stack, structural groups, contacts na faults. |
-| `loopstructural` | Haijakamilika | Inahitaji feature/contact/orientation constraints na model extent. |
-| `pygslib` | Haijakamilika | Inahitaji compositing, domains, downhole survey/desurveying na assay QA/QC. |
-| `pygimli` | Haijakamilika | Inahitaji method-specific measurements na electrode/sensor geometry. |
+| `gempy` | READY on isolated engine dependency | GemPy 2026.0.3 runs a real implicit 3D surface model with contacts, orientations and explicit extent. |
+| `loopstructural` | READY on isolated engine dependency | LoopStructural 1.12.0 evaluates real implicit foliation constraints over a regular grid. |
+| `pygslib` | BLOCKED | No PyPI package/source distribution has been established; no fabricated adapter. |
+| `pygimli` | READY for ERT forward modelling | pyGIMLi 1.6.1 runs real synthetic ERT forward responses; inversion is still not verified. |
 
 ## Availability verification 2026-11-24
 

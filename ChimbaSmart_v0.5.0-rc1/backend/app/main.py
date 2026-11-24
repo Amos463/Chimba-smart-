@@ -417,7 +417,17 @@ def run_job(job_id):
     db=SessionLocal(); j=db.get(Job,job_id)
     try:
         j.status='running'; j.started_at=utcnow(); db.commit()
-        e=ENGINES[j.engine]; ds=dataset.build(db,db.get(Project,j.project_id)); params=json.loads(j.params_json); ds['_sample_type']=params.get('sample_type'); j.input_hash=ds['input_hash']; j.engine_version=e.version
+        e=ENGINES[j.engine]; ds=dataset.build(db,db.get(Project,j.project_id)); params=json.loads(j.params_json); ds['_sample_type']=params.get('sample_type')
+        if j.engine=='gempy':
+            ds['_contacts']=params.get('contacts')
+            ds['_gempy_extent']=params.get('extent')
+        elif j.engine=='loopstructural':
+            ds['_loop_constraints']=params.get('constraints')
+            ds['_loop_extent']=params.get('extent')
+        elif j.engine=='pygimli':
+            ds['_geophysics_electrodes']=params.get('electrodes')
+            ds['_geophysics_measurements']=params.get('measurements')
+        j.input_hash=ds['input_hash']; j.engine_version=e.version
         j.warnings_json=json.dumps([DISCLAIMER]+e.warnings)
         errs=e.validate(ds)+([] if e.adapter_ready else ['Adapter ya engine hii bado haijaandikwa'])+([] if e.library_installed else [f'Maktaba {e.requires} haijasakinishwa'])
         if errs: j.status='rejected'; j.error='; '.join(errs)
@@ -440,7 +450,9 @@ def new_job(b:JobIn,bg:BackgroundTasks,user:User=Depends(current_user),db:Sessio
         try:
             from redis import Redis
             from rq import Queue
-            queue=Queue('chimbasmart',connection=Redis.from_url(config.REDIS_URL))
+            isolated_engines={'gempy','loopstructural','pygimli','pykrige'}
+            queue_name='chimbasmart-engines' if j.engine in isolated_engines else 'chimbasmart'
+            queue=Queue(queue_name,connection=Redis.from_url(config.REDIS_URL))
             queue.enqueue('app.worker.execute_job',j.id,job_timeout='30m',failure_ttl=86400,retries=0,job_id=j.id)
             audit(db,None,'job.queued',actor_id=user.id,project_id=j.project_id,resource_type='job',resource_id=j.id)
             db.commit()

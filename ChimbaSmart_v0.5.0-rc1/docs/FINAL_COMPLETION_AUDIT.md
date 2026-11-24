@@ -20,7 +20,7 @@
 | Android release APK/AAB | PARTIAL | Release APK and AAB built successfully, but both are signed with the Android debug certificate; production signing configuration is absent. |
 | Flutter web release | PASS | Build completed; output is `mobile/build/web/`. |
 | trend2d, orientation, IDW, compositing, PyKrige | PASS | Implemented and tested with synthetic/backend cases. |
-| GemPy, LoopStructural, PyGSLIB, pyGIMLi | BLOCKED | Optional libraries are unavailable; adapters report truthful unavailability. |
+| GemPy, LoopStructural, PyGSLIB, pyGIMLi | PARTIAL | GemPy, LoopStructural and pyGIMLi have real adapters and passed synthetic execution tests; PyGSLIB is blocked; production geological review and pyGIMLi inversion remain pending. |
 | End-to-end workflows | BLOCKED | Full live API/worker/browser/Flutter chain is not verified. |
 | Tanzania field validation | BLOCKED | Requires authorized field pilot and device/geologist validation. |
 

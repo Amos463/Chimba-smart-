@@ -161,8 +161,149 @@ class PyKrige(Engine):
         gx=np.linspace(min(x),max(x),size); gy=np.linspace(min(y),max(y),size); zgrid,var=ok.execute('grid',gx,gy)
         return {'method':'ordinary_kriging','sample_type':sample_type,'variogram_model':model,'crs':ds['crs'],'x':gx.tolist(),'y':gy.tolist(),'values':np.asarray(zgrid).tolist(),'variance':np.asarray(var).tolist(),'sample_count':len(pts),'input_hash':ds['input_hash']}
 
+class GemPyModel(Engine):
+    name='gempy'; version='2026.0.3'; requires='gempy'; adapter_ready=True
+    warnings=['3D implicit model; geological interpretation and competent-person review are required.']
+    def validate(self,ds):
+        contacts=ds.get('_contacts') or ds.get('contacts') or []
+        if len(contacts)<3: return ['GemPy requires at least 3 explicit surface/stratigraphic contacts']
+        extent=ds.get('_gempy_extent') or ds.get('gempy_extent')
+        if not (isinstance(extent,list) and len(extent)==6): return ['GemPy requires an explicit 6-value model extent']
+        return []
+    def run(self,ds,p):
+        import gempy as gp
+        import numpy as np
+        from gempy_engine.core.data.stack_relation_type import StackRelationType
+        contacts=p.get('contacts') or ds.get('_contacts') or ds.get('contacts') or []
+        extent=p.get('extent') or ds.get('_gempy_extent') or ds.get('gempy_extent')
+        resolution=p.get('resolution',[20,20,20])
+        if len(contacts)<3 or not (isinstance(extent,list) and len(extent)==6): raise ValueError('GemPy requires contacts and a 6-value extent')
+        if not (isinstance(resolution,list) and len(resolution)==3 and all(isinstance(v,int) and 5<=v<=100 for v in resolution)): raise ValueError('GemPy resolution must contain three integers from 5..100')
+        element_name=p.get('surface_name','Surface1')
+        x=np.array([float(c['x']) for c in contacts],dtype=float)
+        y=np.array([float(c['y']) for c in contacts],dtype=float)
+        z=np.array([float(c['z']) for c in contacts],dtype=float)
+        names=np.array([str(c.get('name',element_name)) for c in contacts])
+        unique_names=sorted(set(names.tolist()))
+        if len(unique_names)!=1: raise ValueError('GemPy adapter currently requires one explicit surface per job')
+        orient=ds.get('orientations') or p.get('orientations') or []
+        if orient:
+            ox=np.array([float(o['x']) for o in orient],dtype=float)
+            oy=np.array([float(o['y']) for o in orient],dtype=float)
+            oz=np.array([float(o['z']) for o in orient],dtype=float)
+            gx=np.array([float(o.get('pole_gx',0)) for o in orient],dtype=float)
+            gy=np.array([float(o.get('pole_gy',0)) for o in orient],dtype=float)
+            gz=np.array([float(o.get('pole_gz',1)) for o in orient],dtype=float)
+            orientations=gp.data.OrientationsTable.from_arrays(ox,oy,oz,gx,gy,gz,names=element_name)
+        else:
+            orientations=gp.data.OrientationsTable.initialize_empty()
+        surface=gp.data.StructuralElement(
+            name=element_name,
+            surface_points=gp.data.SurfacePointsTable.from_arrays(x,y,z,names=element_name),
+            orientations=orientations,
+            color='#015482',
+        )
+        group=gp.data.StructuralGroup(name=p.get('structural_group','StratSeries'),elements=[surface],structural_relation=StackRelationType.ERODE)
+        frame=gp.data.StructuralFrame([group],gp.data.ColorsGenerator())
+        model=gp.create_geomodel(project_name=p.get('project_name','ChimbaSmart'),extent=extent,resolution=resolution,structural_frame=frame)
+        model.update_transform(gp.data.GlobalAnisotropy.NONE)
+        solutions=gp.compute_model(model)
+        octree_levels=getattr(solutions,'octree_levels',None)
+        return {
+            'method':'gempy_implicit_surface',
+            'engine':'gempy','engine_version':'2026.0.3',
+            'surface_name':element_name,'extent':extent,'resolution':resolution,
+            'crs':ds['crs'],'input_hash':ds['input_hash'],
+            'octree_levels':octree_levels,
+            'warnings':list(self.warnings),
+        }
+
+class LoopStructuralModel(Engine):
+    name='loopstructural'; version='1.12.0'; requires='LoopStructural'; adapter_ready=True
+    warnings=['Implicit model; orientation and topology assumptions require geological review.']
+    def validate(self,ds):
+        constraints=ds.get('_loop_constraints') or ds.get('loop_constraints') or []
+        extent=ds.get('_loop_extent') or ds.get('loop_extent')
+        if len(constraints)<3: return ['LoopStructural requires at least 3 XYZ orientation/constraint points']
+        if not (isinstance(extent,list) and len(extent)==2 and all(isinstance(p,(list,tuple,np.ndarray)) and len(p)==3 for p in extent)): return ['LoopStructural requires origin and maximum 3D bounds']
+        return []
+    def run(self,ds,p):
+        import pandas as pd
+        from LoopStructural import GeologicalModel
+        constraints=p.get('constraints') or ds.get('_loop_constraints') or ds.get('loop_constraints') or []
+        extent=p.get('extent') or ds.get('_loop_extent') or ds.get('loop_extent')
+        if len(constraints)<3: raise ValueError('LoopStructural requires at least 3 constraints')
+        if not (isinstance(extent,list) and len(extent)==2): raise ValueError('LoopStructural requires origin and maximum bounds')
+        rows=[]
+        for c in constraints:
+            rows.append({'X':float(c['x']),'Y':float(c['y']),'Z':float(c['z']),'nx':float(c.get('nx',0)),'ny':float(c.get('ny',0)),'nz':float(c.get('nz',1)),'feature_name':str(c.get('feature_name','strati'))})
+        df=pd.DataFrame(rows)
+        feature_name=p.get('feature_name','strati')
+        origin=np.asarray(extent[0],dtype=float); maximum=np.asarray(extent[1],dtype=float)
+        model=GeologicalModel(origin,maximum)
+        model.set_model_data(df)
+        feature=model.create_and_add_foliation(feature_name,data=df,nelements=int(p.get('nelements',10000)))
+        if feature is None: raise RuntimeError('LoopStructural did not create the requested geological feature')
+        grid_size=int(p.get('grid_size',20))
+        if not 5<=grid_size<=100: raise ValueError('LoopStructural grid_size must be 5..100')
+        xs=np.linspace(origin[0],maximum[0],grid_size); ys=np.linspace(origin[1],maximum[1],grid_size); zs=np.linspace(origin[2],maximum[2],grid_size)
+        xx,yy,zz=np.meshgrid(xs,ys,zs,indexing='ij')
+        xyz=np.column_stack((xx.ravel(),yy.ravel(),zz.ravel()))
+        values=model.evaluate_feature_value(feature_name,xyz,scale=False)
+        finite=np.isfinite(np.asarray(values))
+        if not bool(finite.any()): raise RuntimeError('LoopStructural returned no finite model values')
+        return {
+            'method':'loopstructural_implicit_foliation','engine':'LoopStructural','engine_version':'1.12.0',
+            'feature_name':feature_name,'extent':[origin.tolist(),maximum.tolist()],
+            'grid_size':grid_size,'crs':ds['crs'],'input_hash':ds['input_hash'],
+            'values':np.asarray(values).reshape((grid_size,grid_size,grid_size)).tolist(),
+            'finite_value_count':int(finite.sum()),'warnings':list(self.warnings),
+        }
+
+class PyGIMLiERT(Engine):
+    name='pygimli'; version='1.6.1'; requires='pygimli'; adapter_ready=True
+    warnings=['Geophysical inversion is non-unique; measurements and error model require specialist review.']
+    def validate(self,ds):
+        electrodes=ds.get('_geophysics_electrodes') or ds.get('geophysics_electrodes') or []
+        measurements=ds.get('_geophysics_measurements') or ds.get('geophysics_measurements') or []
+        if len(electrodes)<4: return ['pyGIMLi ERT requires at least 4 electrodes']
+        if len(measurements)<1: return ['pyGIMLi ERT requires at least 1 four-point measurement']
+        return []
+    def run(self,ds,p):
+        import pygimli as pg
+        from pygimli.physics import ert
+        import pygimli.meshtools as mt
+        electrodes=p.get('electrodes') or ds.get('_geophysics_electrodes') or ds.get('geophysics_electrodes') or []
+        measurements=p.get('measurements') or ds.get('_geophysics_measurements') or ds.get('geophysics_measurements') or []
+        if len(electrodes)<4 or len(measurements)<1: raise ValueError('pyGIMLi requires electrodes and measurements')
+        scheme=pg.DataContainerERT()
+        for electrode in electrodes:
+            if not isinstance(electrode,(list,tuple)) or len(electrode)!=3: raise ValueError('Each electrode must be [x,y,z]')
+            scheme.createSensor(tuple(float(v) for v in electrode))
+        scheme.resize(len(measurements))
+        for field in ('a','b','m','n'):
+            values=[]
+            for m in measurements:
+                index=int(m[field])
+                if index<0 or index>=len(electrodes): raise ValueError(f'{field} electrode index out of range')
+                values.append(index)
+            scheme.set(field,values)
+        world=mt.createWorld(start=p.get('world_start',[-50,0]),end=p.get('world_end',[50,-50]),layers=p.get('layers',[-1,-5]),worldMarker=True)
+        for sensor in scheme.sensorPositions(): world.createNode(sensor)
+        mesh=mt.createMesh(world,quality=int(p.get('mesh_quality',34)))
+        res=p.get('initial_resistivities',[[1,100],[2,100],[3,60]])
+        forward=ert.simulate(mesh,res=res,scheme=scheme,verbose=False)
+        rhoa=np.asarray(forward.get('rhoa').array(),dtype=float)
+        if rhoa.size!=len(measurements): raise RuntimeError('pyGIMLi returned an unexpected measurement count')
+        return {
+            'method':'pygimli_ert_forward','engine':'pygimli','engine_version':'1.6.1',
+            'electrode_count':len(electrodes),'measurement_count':len(measurements),
+            'rhoa':rhoa.tolist(),'crs':ds['crs'],'input_hash':ds['input_hash'],
+            'initial_resistivities':res,'warnings':list(self.warnings),
+        }
+
 class UnavailableAdapter(Engine):
     def __init__(self,name,requires,reason): self.name=name; self.requires=requires; self.reason=reason; self.warnings=[reason]
     def validate(self,ds): return [self.reason]
 
-ENGINES={e.name:e for e in (Trend2D(),OrientationMean(),IDW(),DownholeComposite(),PyKrige(),UnavailableAdapter('loopstructural','LoopStructural','Adapter inahitaji utekelezaji wa feature/contact constraints na version pin.'),UnavailableAdapter('gempy','gempy','Adapter inahitaji stratigraphic stack, structural groups na fault mapping.'),UnavailableAdapter('pygslib','pygslib','Adapter inahitaji collar-survey-assay compositing na domain QA.'),UnavailableAdapter('pygimli','pygimli','Adapter inahitaji survey-specific sensor/electrode geometry na import formats.'))}
+ENGINES={e.name:e for e in (Trend2D(),OrientationMean(),IDW(),DownholeComposite(),PyKrige(),GemPyModel(),LoopStructuralModel(),UnavailableAdapter('pygslib','pygslib','No PyPI package is available; integration requires a separately licensed/source-provided distribution and container.'),PyGIMLiERT())}
