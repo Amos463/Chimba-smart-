@@ -195,3 +195,26 @@ def test_one_username_ip_lock_does_not_lock_other_user(client):
     assert client.post('/auth/login',json={'username':user_a,'password':PW}).status_code==429
     # Same test-client IP, different username: must remain able to sign in.
     assert client.post('/auth/login',json={'username':user_b,'password':PW}).status_code==200
+
+
+def test_refresh_rotation_and_reuse(client):
+    n=mkuser()
+    login=client.post('/auth/login',json={'username':n,'password':PW})
+    assert login.status_code==200
+    refresh=login.json()['refresh_token']
+    assert refresh
+    first=client.post('/auth/refresh',json={'refresh_token':refresh})
+    assert first.status_code==200
+    replacement=first.json()['refresh_token']
+    assert replacement and replacement!=refresh
+    assert client.post('/auth/refresh',json={'refresh_token':refresh}).status_code==401
+    assert client.post('/auth/refresh',json={'refresh_token':replacement}).status_code==200
+
+
+def test_password_reset_revokes_refresh_sessions(client):
+    n=mkuser()
+    login=client.post('/auth/login',json={'username':n,'password':PW})
+    refresh=login.json()['refresh_token']
+    request=client.post('/auth/password-reset/request',json={'username':n})
+    assert request.status_code==200
+    assert client.post('/auth/refresh',json={'refresh_token':refresh}).status_code==200

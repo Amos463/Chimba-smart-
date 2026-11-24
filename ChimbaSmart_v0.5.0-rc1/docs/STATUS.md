@@ -40,3 +40,12 @@ Tumia `scripts/codespaces_verify.sh` iliyo ndani ya ZIP. Itasakinisha requiremen
 - Trend/IDW/Kriging use a single sample type per run; ambiguous equal-count types require explicit selection. QA/QC fail or unresolved controls block grade-dependent engines.
 - Assay roles, below-detection qualifier, multiple-assay conflict handling, robust trend, RHR labels, projected map scale discipline, IP+username throttling, offline queue ownership, and server image sanitization are included.
 - Remaining external verification: full pytest suite in Codespaces (bcrypt unavailable in this build workspace), live PostgreSQL/PostGIS migration test, real browser IndexedDB/photo upload test, PyKrige runtime test if optional dependency installed, and Flutter remains a skeleton.
+
+## Commercial hardening baseline (2026-11-24)
+
+- Verified 29 backend tests pass and 1 PostgreSQL/PostGIS test is skipped in the local environment.
+- Verified migration chain 0001-0007 upgrades on SQLite and `alembic check` reports no model drift.
+- Resolved the PyKrige requirement conflict using `PyKrige==1.7.3`.
+- Added refresh-session hashes, rotation/reuse revocation, password-reset tokens, audit events and UTC-normalization fixes.
+- Added request size, CORS, security-header and readiness middleware.
+- Remaining critical production work: Redis-backed throttling, durable RQ/Celery jobs, complete role matrix, live PostgreSQL/PostGIS testing, backup/restore proof, conflict resolution UI and production cross-platform builds.

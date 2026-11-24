@@ -21,3 +21,13 @@
 - Grade analysis selects one sample type per run; ties require explicit selection. QA/QC controls that fail or remain unresolved block trend, IDW and Kriging.
 - Added duplicate-coordinate and non-projected CRS guards; Arc 1960 UTM limited to southern zones 35S–37S.
 - Added migration 0006 for attachment content deduplication; verified fresh SQLite migration chain and Alembic metadata parity.
+
+## Commercial hardening checkpoint
+
+- Added migration 0007 for refresh sessions, password-reset tokens and audit events.
+- Shortened access-token lifetime to 15 minutes by default.
+- Added refresh rotation and reuse rejection.
+- Added logout, password-reset confirmation and refresh-session revocation.
+- Added readiness database check, request-size enforcement, CORS restrictions and security response headers.
+- Added UTC-safe refresh/reset expiry handling and focused rotation tests.
+- Unified PyKrige dependency version at 1.7.3 across core and geostatistics requirement files.

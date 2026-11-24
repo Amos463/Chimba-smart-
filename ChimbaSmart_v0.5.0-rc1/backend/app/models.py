@@ -106,3 +106,41 @@ class Attachment(Base):
     storage_key:Mapped[str]=S(80,unique=True); filename:Mapped[str]=S(255)
     media_type:Mapped[str]=S(80); sha256:Mapped[str]=S(64); size_bytes:Mapped[int]=mapped_column(Integer)
     uploaded_by:Mapped[str]=S(); created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=utcnow)
+
+
+class RefreshSession(Base):
+    __tablename__='refresh_sessions'
+    __table_args__=(Index('ix_refresh_sessions_user','user_id'),)
+    id:Mapped[str]=S(primary_key=True)
+    user_id:Mapped[str]=S(36,index=True)
+    token_hash:Mapped[str]=S(64,unique=True,index=True)
+    expires_at:Mapped[datetime]=mapped_column(DateTime(timezone=True))
+    revoked_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True),nullable=True)
+    replaced_by:Mapped[str|None]=S(36,nullable=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=utcnow)
+
+
+class PasswordResetToken(Base):
+    __tablename__='password_reset_tokens'
+    id:Mapped[str]=S(primary_key=True)
+    user_id:Mapped[str]=S(36,index=True)
+    token_hash:Mapped[str]=S(64,unique=True,index=True)
+    expires_at:Mapped[datetime]=mapped_column(DateTime(timezone=True))
+    used_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True),nullable=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=utcnow)
+
+
+class AuditEvent(Base):
+    __tablename__='audit_events'
+    __table_args__=(Index('ix_audit_project_created','project_id','created_at'),)
+    id:Mapped[int]=mapped_column(Integer,primary_key=True,autoincrement=True)
+    actor_id:Mapped[str|None]=S(36,nullable=True)
+    project_id:Mapped[str|None]=S(36,nullable=True,index=True)
+    action:Mapped[str]=S(80)
+    resource_type:Mapped[str|None]=S(80,nullable=True)
+    resource_id:Mapped[str|None]=S(100,nullable=True)
+    outcome:Mapped[str]=S(20)
+    ip_address:Mapped[str|None]=S(64,nullable=True)
+    request_id:Mapped[str|None]=S(100,nullable=True)
+    details_json:Mapped[str|None]=mapped_column(Text,nullable=True)
+    created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=utcnow)

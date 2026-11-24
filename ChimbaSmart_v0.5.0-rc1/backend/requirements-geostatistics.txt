@@ -1,2 +1,2 @@
 -r requirements.txt
-pykrige==1.7.2
+PyKrige==1.7.3

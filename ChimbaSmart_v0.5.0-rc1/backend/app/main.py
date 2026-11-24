@@ -1,6 +1,7 @@
 import hashlib,json,uuid,os,time,collections,mimetypes,secrets,io
-from datetime import datetime,timezone
+from datetime import datetime,timedelta,timezone
 from fastapi import FastAPI,Depends,HTTPException,BackgroundTasks,Response,UploadFile,File,Form,Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer,HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -9,10 +10,17 @@ import jwt
 from . import config,dataset,typed,report
 from .engines import ENGINES,DISCLAIMER,quick
 from .db import Base,engine,get_db,SessionLocal
-from .models import User,Project,ProjectMember,Record,SyncConflict,Job,Attachment,Sample,utcnow
+from .models import User,Project,ProjectMember,Record,SyncConflict,Job,Attachment,Sample,RefreshSession,PasswordResetToken,AuditEvent,utcnow
 from .schemas import *
 from .security import verify_password,hash_password,create_token,decode_token
 app=FastAPI(title='ChimbaSmart API',version='0.5.0-rc1',description='Offline-first geological field data API')
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+    allow_headers=['Authorization','Content-Type','X-Request-ID'],
+)
 bearer=HTTPBearer(auto_error=False)
 if config.AUTO_CREATE_TABLES: Base.metadata.create_all(bind=engine)  # prod: tumia alembic
 canon=lambda p: json.dumps(p,sort_keys=True,separators=(',',':'),ensure_ascii=False)
@@ -32,11 +40,56 @@ def need_member(db,user,pid,owner=False):
     if not m or (owner and m.role!='owner'): raise HTTPException(403,'Huna ruhusa ya mradi huu')
     return p
 FAILS=collections.defaultdict(list)  # kwenye kumbukumbu ya process moja; prod yenye workers nyingi: tumia Redis
+
+
+def audit(db:Session, request:Request|None, action:str, *, actor_id:str|None=None, project_id:str|None=None,
+          resource_type:str|None=None, resource_id:str|None=None, outcome:str='success', details:dict|None=None):
+    db.add(AuditEvent(
+        actor_id=actor_id, project_id=project_id, action=action, resource_type=resource_type,
+        resource_id=resource_id, outcome=outcome,
+        ip_address=request.client.host if request and request.client else None,
+        request_id=request.headers.get('x-request-id') if request else None,
+        details_json=canon(details) if details else None,
+    ))
+
+
+def utc_aware(value:datetime|None)->datetime|None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+@app.middleware('http')
+async def security_middleware(request:Request, call_next):
+    request_id=request.headers.get('x-request-id') or str(uuid.uuid4())
+    content_length=request.headers.get('content-length')
+    if content_length:
+        try:
+            if int(content_length)>config.MAX_REQUEST_BYTES:
+                raise HTTPException(413,'Request imezidi ukubwa unaoruhusiwa')
+        except ValueError:
+            raise HTTPException(400,'Content-Length si sahihi')
+    response=await call_next(request)
+    response.headers['X-Request-ID']=request_id
+    response.headers['X-Content-Type-Options']='nosniff'
+    response.headers['Referrer-Policy']='strict-origin-when-cross-origin'
+    response.headers['X-Frame-Options']='DENY'
+    response.headers['Cache-Control']='no-store'
+    return response
 def throttle(k,limit=None):
     now=time.time(); FAILS[k]=[t for t in FAILS[k] if now-t<config.LOGIN_WINDOW_S]
     if len(FAILS[k])>=(limit or config.LOGIN_MAX_FAILS): raise HTTPException(429,'Majaribio mengi. Subiri dakika 15.')
 @app.get('/health')
 def health(): return {'status':'ok','time_utc':datetime.now(timezone.utc).isoformat()}
+@app.get('/ready')
+def readiness(db:Session=Depends(get_db)):
+    try:
+        db.execute(__import__('sqlalchemy').text('SELECT 1'))
+        return {'status':'ready','database':'ok','time_utc':datetime.now(timezone.utc).isoformat()}
+    except Exception:
+        raise HTTPException(503,'Database haipatikani')
 @app.post('/auth/login',response_model=TokenOut)
 def login(b:LoginIn,request:Request,db:Session=Depends(get_db)):
     username=b.username.lower()
@@ -49,7 +102,86 @@ def login(b:LoginIn,request:Request,db:Session=Depends(get_db)):
         now=time.time(); FAILS[user_key].append(now); FAILS[ip_key].append(now)
         raise HTTPException(401,'Jina au nenosiri si sahihi')
     FAILS.pop(user_key,None); FAILS.pop(ip_key,None)
-    return TokenOut(access_token=create_token(u.id))
+    raw_refresh=secrets.token_urlsafe(48)
+    session=RefreshSession(
+        id=str(uuid.uuid4()), user_id=u.id,
+        token_hash=hashlib.sha256(raw_refresh.encode()).hexdigest(),
+        expires_at=datetime.now(timezone.utc)+__import__('datetime').timedelta(days=config.REFRESH_TOKEN_DAYS),
+    )
+    db.add(session); audit(db,request,'auth.login',actor_id=u.id,outcome='success'); db.commit()
+    return TokenOut(access_token=create_token(u.id),refresh_token=raw_refresh)
+
+@app.post('/auth/refresh',response_model=TokenOut)
+def refresh(b:RefreshIn,request:Request,db:Session=Depends(get_db)):
+    token_hash=hashlib.sha256(b.refresh_token.encode()).hexdigest()
+    session=db.query(RefreshSession).filter_by(token_hash=token_hash).first()
+    now=datetime.now(timezone.utc)
+    if not session or utc_aware(session.revoked_at) or utc_aware(session.expires_at)<=now:
+        audit(db,request,'auth.refresh',outcome='denied')
+        db.commit()
+        raise HTTPException(401,'Refresh token si halali')
+    raw_refresh=secrets.token_urlsafe(48)
+    replacement=RefreshSession(
+        id=str(uuid.uuid4()), user_id=session.user_id,
+        token_hash=hashlib.sha256(raw_refresh.encode()).hexdigest(),
+        expires_at=now+__import__('datetime').timedelta(days=config.REFRESH_TOKEN_DAYS),
+    )
+    session.revoked_at=now
+    session.replaced_by=replacement.id
+    db.add(replacement); audit(db,request,'auth.refresh',actor_id=session.user_id,outcome='success')
+    db.commit()
+    return TokenOut(access_token=create_token(session.user_id),refresh_token=raw_refresh)
+
+@app.post('/auth/logout')
+def logout(b:LogoutIn,user:User=Depends(current_user),request:Request=None,db:Session=Depends(get_db)):
+    if b.refresh_token:
+        token_hash=hashlib.sha256(b.refresh_token.encode()).hexdigest()
+        session=db.query(RefreshSession).filter_by(token_hash=token_hash,user_id=user.id).first()
+        if session and not session.revoked_at:
+            session.revoked_at=datetime.now(timezone.utc)
+    audit(db,request,'auth.logout',actor_id=user.id,outcome='success')
+    db.commit()
+    return {'ok':True}
+
+
+@app.post('/auth/password-reset/request')
+def password_reset_request(b:PasswordResetRequestIn,request:Request,db:Session=Depends(get_db)):
+    u=db.query(User).filter_by(username=b.username.lower()).first()
+    if u:
+        raw=secrets.token_urlsafe(48)
+        row=PasswordResetToken(
+            id=str(uuid.uuid4()), user_id=u.id,
+            token_hash=hashlib.sha256(raw.encode()).hexdigest(),
+            expires_at=datetime.now(timezone.utc)+timedelta(minutes=30),
+        )
+        db.add(row)
+        audit(db,request,'auth.password_reset_requested',actor_id=u.id,outcome='success')
+        db.commit()
+    else:
+        audit(db,request,'auth.password_reset_requested',outcome='not_found')
+        db.commit()
+    return {'ok':True,'detail':'If the account exists, reset instructions will be delivered by the configured account channel.'}
+
+
+@app.post('/auth/password-reset/confirm')
+def password_reset_confirm(b:PasswordResetConfirmIn,request:Request,db:Session=Depends(get_db)):
+    token_hash=hashlib.sha256(b.token.encode()).hexdigest()
+    row=db.query(PasswordResetToken).filter_by(token_hash=token_hash).first()
+    now=datetime.now(timezone.utc)
+    if not row or utc_aware(row.used_at) or utc_aware(row.expires_at)<=now:
+        audit(db,request,'auth.password_reset_confirm',outcome='denied')
+        db.commit()
+        raise HTTPException(400,'Reset token si halali au imeisha muda')
+    u=db.get(User,row.user_id)
+    if not u:
+        raise HTTPException(400,'Reset token si halali')
+    u.password_hash=hash_password(b.password)
+    row.used_at=now
+    for session in db.query(RefreshSession).filter_by(user_id=u.id,revoked_at=None).all():
+        session.revoked_at=now
+    audit(db,request,'auth.password_reset_confirm',actor_id=u.id,outcome='success')
+    db.commit()
+    return {'ok':True}
 @app.post('/admin/users',status_code=201)
 def create_user(b:UserIn,admin:User=Depends(current_user),db:Session=Depends(get_db)):
     if admin.role!='admin': raise HTTPException(403,'Msimamizi tu')

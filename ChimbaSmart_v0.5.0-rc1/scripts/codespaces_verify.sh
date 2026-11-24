@@ -2,12 +2,14 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+PYTHON="python"
+if [ -x "$ROOT/.venv/bin/python" ]; then PYTHON="$ROOT/.venv/bin/python"; fi
 echo '[1/7] Python syntax'
-python -m compileall -q backend/app backend/migrations backend/tests
+"$PYTHON" -m compileall -q backend/app backend/migrations backend/tests
 echo '[2/7] Install backend dependencies'
-python -m pip install -r backend/requirements.txt
+"$PYTHON" -m pip install -r backend/requirements.txt
 echo '[3/7] Backend tests'
-(cd backend && python -m pytest -q)
+(cd backend && "$PYTHON" -m pytest -q)
 echo '[4/7] Alembic migration chain on fresh SQLite'
 (cd backend && rm -f chimbasmart_migration_check.db && DATABASE_URL=sqlite:///./chimbasmart_migration_check.db AUTO_CREATE_TABLES=0 alembic upgrade head && rm -f chimbasmart_migration_check.db)
 echo '[5/7] Frontend JavaScript syntax'
