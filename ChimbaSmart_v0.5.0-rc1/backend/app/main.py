@@ -1,0 +1,210 @@
+import hashlib,json,uuid,os,time,collections,mimetypes,secrets,io
+from datetime import datetime,timezone
+from fastapi import FastAPI,Depends,HTTPException,BackgroundTasks,Response,UploadFile,File,Form,Request
+from fastapi.security import HTTPBearer,HTTPAuthorizationCredentials
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+import jwt
+from . import config,dataset,typed,report
+from .engines import ENGINES,DISCLAIMER,quick
+from .db import Base,engine,get_db,SessionLocal
+from .models import User,Project,ProjectMember,Record,SyncConflict,Job,Attachment,Sample,utcnow
+from .schemas import *
+from .security import verify_password,hash_password,create_token,decode_token
+app=FastAPI(title='ChimbaSmart API',version='0.5.0-rc1',description='Offline-first geological field data API')
+bearer=HTTPBearer(auto_error=False)
+if config.AUTO_CREATE_TABLES: Base.metadata.create_all(bind=engine)  # prod: tumia alembic
+canon=lambda p: json.dumps(p,sort_keys=True,separators=(',',':'),ensure_ascii=False)
+sha=lambda p: hashlib.sha256(canon(p).encode()).hexdigest()
+def current_user(creds:HTTPAuthorizationCredentials|None=Depends(bearer),db:Session=Depends(get_db)):
+    if not creds: raise HTTPException(401,'Ingia kwanza')
+    try: uid=decode_token(creds.credentials)['sub']
+    except jwt.PyJWTError: raise HTTPException(401,'Kipindi kimeisha, ingia tena')
+    u=db.get(User,uid)
+    if not u: raise HTTPException(401,'Mtumiaji hajulikani')
+    return u
+def need_member(db,user,pid,owner=False):
+    p=db.get(Project,pid)
+    if not p: raise HTTPException(404,'Mradi haupo')
+    if user.role=='admin': return p
+    m=db.get(ProjectMember,(pid,user.id))
+    if not m or (owner and m.role!='owner'): raise HTTPException(403,'Huna ruhusa ya mradi huu')
+    return p
+FAILS=collections.defaultdict(list)  # kwenye kumbukumbu ya process moja; prod yenye workers nyingi: tumia Redis
+def throttle(k,limit=None):
+    now=time.time(); FAILS[k]=[t for t in FAILS[k] if now-t<config.LOGIN_WINDOW_S]
+    if len(FAILS[k])>=(limit or config.LOGIN_MAX_FAILS): raise HTTPException(429,'Majaribio mengi. Subiri dakika 15.')
+@app.get('/health')
+def health(): return {'status':'ok','time_utc':datetime.now(timezone.utc).isoformat()}
+@app.post('/auth/login',response_model=TokenOut)
+def login(b:LoginIn,request:Request,db:Session=Depends(get_db)):
+    username=b.username.lower()
+    ip=request.client.host if request.client else 'unknown'
+    user_key=f'user:{username}:ip:{ip}'
+    ip_key=f'ip:{ip}'
+    throttle(user_key,config.LOGIN_MAX_FAILS); throttle(ip_key,config.LOGIN_IP_MAX_FAILS)
+    u=db.query(User).filter(User.username==username).first()
+    if not u or not verify_password(b.password,u.password_hash):
+        now=time.time(); FAILS[user_key].append(now); FAILS[ip_key].append(now)
+        raise HTTPException(401,'Jina au nenosiri si sahihi')
+    FAILS.pop(user_key,None); FAILS.pop(ip_key,None)
+    return TokenOut(access_token=create_token(u.id))
+@app.post('/admin/users',status_code=201)
+def create_user(b:UserIn,admin:User=Depends(current_user),db:Session=Depends(get_db)):
+    if admin.role!='admin': raise HTTPException(403,'Msimamizi tu')
+    n=b.username.lower()
+    if db.query(User).filter_by(username=n).first(): raise HTTPException(409,'Jina limeshatumika')
+    u=User(id=str(uuid.uuid4()),username=n,password_hash=hash_password(b.password),role=b.role); db.add(u); db.commit(); return {'id':u.id,'username':n}
+@app.post('/projects',status_code=201)
+def new_project(b:ProjectIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    p=Project(id=str(uuid.uuid4()),name=b.name,projected_crs=b.projected_crs,created_by=user.id); db.add(p); db.add(ProjectMember(project_id=p.id,user_id=user.id,role='owner')); db.commit()
+    return {'id':p.id,'name':p.name,'projected_crs':p.projected_crs}
+@app.get('/projects')
+def my_projects(user:User=Depends(current_user),db:Session=Depends(get_db)):
+    q=db.query(Project) if user.role=='admin' else db.query(Project).join(ProjectMember,ProjectMember.project_id==Project.id).filter(ProjectMember.user_id==user.id)
+    return [{'id':p.id,'name':p.name,'projected_crs':p.projected_crs} for p in q.all()]
+@app.post('/projects/{pid}/members',status_code=201)
+def add_member(pid:str,b:MemberIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    need_member(db,user,pid,owner=True); u=db.query(User).filter_by(username=b.username.lower()).first()
+    if not u: raise HTTPException(404,'Mtumiaji hayupo')
+    db.merge(ProjectMember(project_id=pid,user_id=u.id,role=b.role)); db.commit(); return {'ok':True}
+@app.post('/sync/push',response_model=PushResponse)
+def push(body:PushRequest,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    for pid in {r.project_id for r in body.records}: need_member(db,user,pid)
+    acks=[]
+    for it in sorted(body.records,key=lambda r:typed.PRIORITY.get(r.record_type,9)):
+        h=sha(it.payload)
+        old=db.query(Record).filter_by(project_id=it.project_id,record_uuid=it.record_uuid).first()
+        if old:
+            if old.content_hash==h: acks.append(PushAck(record_uuid=it.record_uuid,status='duplicate',server_version=old.server_version)); continue
+            c=SyncConflict(project_id=it.project_id,record_uuid=it.record_uuid,device_id=it.device_id,incoming_json=canon(it.payload),existing_json=old.payload_json)
+            db.add(c); db.flush(); acks.append(PushAck(record_uuid=it.record_uuid,status='conflict',server_version=old.server_version,conflict_id=c.id,detail='Maudhui tofauti na yaliyo kwenye seva')); continue
+        err=typed.project(db,it)
+        if err: acks.append(PushAck(record_uuid=it.record_uuid,status='invalid',detail=err[0],retry=err[1])); continue
+        db.add(Record(project_id=it.project_id,record_uuid=it.record_uuid,record_type=it.record_type,payload_json=canon(it.payload),created_at_utc=it.created_at_utc,
+            updated_at_utc=it.updated_at_utc,created_by=user.id,device_id=it.device_id,source_method=it.source_method,crs=it.crs,content_hash=h,client_hash=it.content_hash))
+        db.flush(); acks.append(PushAck(record_uuid=it.record_uuid,status='accepted',server_version=1))
+    db.commit(); return PushResponse(accepted=acks,server_time_utc=datetime.now(timezone.utc))
+@app.get('/sync/pull',response_model=PullResponse)
+def pull(project_id:str,cursor:int=0,limit:int=200,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    if limit<1 or limit>500: raise HTTPException(400,'limit iwe 1..500')
+    need_member(db,user,project_id)
+    rows=db.query(Record).filter(Record.project_id==project_id,Record.id>cursor).order_by(Record.id).limit(limit).all()
+    return PullResponse(records=[{'record_uuid':r.record_uuid,'project_id':r.project_id,'record_type':r.record_type,'payload':json.loads(r.payload_json),
+        'created_at_utc':r.created_at_utc.isoformat(),'updated_at_utc':r.updated_at_utc.isoformat(),'server_version':r.server_version,'crs':r.crs,
+        'deleted_at_utc':r.deleted_at_utc.isoformat() if r.deleted_at_utc else None} for r in rows],
+        next_cursor=rows[-1].id if rows else cursor)
+@app.get('/projects/{pid}/analysis')
+def analysis(pid:str,sample_type:str|None=None,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    ds=dataset.build(db,need_member(db,user,pid))
+    allowed={'rock_chip','soil','stream_sediment','channel','surface'}
+    if sample_type and sample_type not in allowed: raise HTTPException(400,'Aina ya sampuli haijulikani')
+    tr,pl=quick(ds,sample_type)
+    map_type=sample_type or tr.get('sample_type')
+    rows=[x for x in ds['samples'] if not map_type or x.get('kind')==map_type]
+    warnings=[DISCLAIMER,'Trend hutumia aina moja ya sampuli kwa wakati mmoja.','Mwelekeo wa 2D hutumia sampuli huru pekee; assay za downhole hazihamishwi hadi collar bila desurveying.']
+    if not ds.get('qa_checks'): warnings.append('Hakuna QA/QC controls zilizowasilishwa; matokeo hayajathibitishwa kwa controls.')
+    return {'samples':rows,'collars':ds['collars'],'trend':tr,'plane':pl,'crs':ds['crs'],'input_hash':ds['input_hash'],'qa_checks':ds.get('qa_checks',[]),'selected_sample_type':map_type,'warnings':warnings}
+
+@app.get('/projects/{pid}/report.pdf')
+def pdf(pid:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    ds=dataset.build(db,need_member(db,user,pid)); tr,pl=quick(ds)
+    try:
+        data,mt=report.to_pdf(report.build_html(user.username,ds['samples'],tr,pl,ds.get('qa_checks',[]),ds.get('input_hash')))
+    except RuntimeError as exc:
+        raise HTTPException(503,str(exc)) from exc
+    if mt!='application/pdf': raise HTTPException(503,'PDF haipatikani; wasiliana na msimamizi.')
+    return Response(data,media_type='application/pdf',headers={'Content-Disposition':'inline; filename=ripoti.pdf'})
+@app.post('/attachments',status_code=201)
+async def upload_attachment(project_id:str=Form(...),sample_id:str=Form(...),sample_record_uuid:str=Form(...),file:UploadFile=File(...),user:User=Depends(current_user),db:Session=Depends(get_db)):
+    need_member(db,user,project_id)
+    sid=sample_id.strip().upper()
+    if not db.query(Sample).filter_by(project_id=project_id,sample_id=sid,record_uuid=sample_record_uuid).first():
+        raise HTTPException(404,'Rekodi husika ya sampuli haijafika kwenye seva bado')
+    allowed={'image/jpeg':'JPEG','image/png':'PNG','image/webp':'WEBP'}
+    if file.content_type not in allowed: raise HTTPException(415,'Picha lazima iwe JPEG, PNG au WEBP')
+    raw=await file.read(10*1024*1024+1)
+    if not raw or len(raw)>10*1024*1024: raise HTTPException(413,'Picha isiwe zaidi ya MB 10')
+    try:
+        from PIL import Image,ImageOps
+        Image.MAX_IMAGE_PIXELS=25_000_000
+        with Image.open(io.BytesIO(raw)) as source:
+            if source.format != allowed[file.content_type]: raise HTTPException(415,'Aina ya picha haifanani na maudhui ya faili')
+            source.verify()
+        with Image.open(io.BytesIO(raw)) as source:
+            clean=ImageOps.exif_transpose(source)
+            clean.thumbnail((4096,4096))
+            if clean.mode not in ('RGB','RGBA'): clean=clean.convert('RGBA' if 'A' in clean.getbands() else 'RGB')
+            fmt=allowed[file.content_type]
+            if fmt=='JPEG' and clean.mode=='RGBA': clean=clean.convert('RGB')
+            buf=io.BytesIO()
+            opts={'quality':88,'optimize':True} if fmt=='JPEG' else {'optimize':True}
+            clean.save(buf,format=fmt,**opts)
+            data=buf.getvalue()
+    except HTTPException: raise
+    except ImportError as exc: raise HTTPException(503,'Image sanitizer haijasakinishwa; picha haijahifadhiwa.') from exc
+    except Exception as exc: raise HTTPException(415,'Picha imeharibika au haiwezi kusafishwa.') from exc
+    if not data or len(data)>10*1024*1024: raise HTTPException(413,'Picha iliyosafishwa imezidi MB 10')
+    digest=hashlib.sha256(data).hexdigest()
+    duplicate=db.query(Attachment).filter_by(project_id=project_id,sample_id=sid,sha256=digest).first()
+    if duplicate:
+        return {'id':duplicate.id,'sample_id':sid,'filename':duplicate.filename,'sha256':duplicate.sha256,'size_bytes':duplicate.size_bytes,'duplicate':True}
+    ext={'JPEG':'.jpg','PNG':'.png','WEBP':'.webp'}[allowed[file.content_type]]
+    storage_key=secrets.token_hex(24)+ext
+    base=os.getenv('ATTACHMENTS_DIR',os.path.join(os.path.dirname(__file__),'..','data','attachments'))
+    os.makedirs(base,exist_ok=True)
+    final_path=os.path.join(base,storage_key); tmp_path=final_path+'.tmp'
+    with open(tmp_path,'wb') as out: out.write(data)
+    os.replace(tmp_path,final_path)
+    row=Attachment(project_id=project_id,sample_id=sid,sample_record_uuid=sample_record_uuid,storage_key=storage_key,
+        filename=os.path.basename(file.filename or 'picha'),media_type=file.content_type,sha256=digest,size_bytes=len(data),uploaded_by=user.id)
+    try:
+        db.add(row); db.commit(); db.refresh(row)
+    except Exception:
+        db.rollback()
+        try: os.remove(final_path)
+        except OSError: pass
+        raise
+    return {'id':row.id,'sample_id':sid,'filename':row.filename,'sha256':row.sha256,'size_bytes':row.size_bytes,'duplicate':False}
+@app.get('/projects/{pid}/samples/{sample_id}/attachments')
+def list_attachments(pid:str,sample_id:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    need_member(db,user,pid); rows=db.query(Attachment).filter_by(project_id=pid,sample_id=sample_id.strip().upper()).order_by(Attachment.id).all()
+    return [{'id':a.id,'filename':a.filename,'media_type':a.media_type,'sha256':a.sha256,'size_bytes':a.size_bytes} for a in rows]
+@app.get('/projects/{pid}/attachments/{attachment_id}')
+def get_attachment(pid:str,attachment_id:int,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    need_member(db,user,pid); a=db.query(Attachment).filter_by(project_id=pid,id=attachment_id).first()
+    if not a: raise HTTPException(404,'Picha haipo')
+    base=os.getenv('ATTACHMENTS_DIR',os.path.join(os.path.dirname(__file__),'..','data','attachments')); path=os.path.join(base,a.storage_key)
+    if not os.path.isfile(path): raise HTTPException(404,'Faili halipo kwenye hifadhi')
+    return FileResponse(path,media_type=a.media_type,filename=a.filename)
+@app.get('/engines')
+def engines(user:User=Depends(current_user)):
+    return [{'name':e.name,'version':e.version,'requires':e.requires,'library_installed':e.library_installed,'adapter_ready':e.adapter_ready,'warnings':e.warnings} for e in ENGINES.values()]
+def run_job(job_id):
+    db=SessionLocal(); j=db.get(Job,job_id)
+    try:
+        j.status='running'; j.started_at=utcnow(); db.commit()
+        e=ENGINES[j.engine]; ds=dataset.build(db,db.get(Project,j.project_id)); params=json.loads(j.params_json); ds['_sample_type']=params.get('sample_type'); j.input_hash=ds['input_hash']; j.engine_version=e.version
+        j.warnings_json=json.dumps([DISCLAIMER]+e.warnings)
+        errs=e.validate(ds)+([] if e.adapter_ready else ['Adapter ya engine hii bado haijaandikwa'])+([] if e.library_installed else [f'Maktaba {e.requires} haijasakinishwa'])
+        if errs: j.status='rejected'; j.error='; '.join(errs)
+        else: j.result_json=json.dumps(e.run(ds,params),default=str); j.status='done'
+    except Exception as ex: db.rollback(); j=db.get(Job,job_id); j.status='failed'; j.error=str(ex)[:500]
+    j.finished_at=utcnow(); db.commit(); db.close()
+@app.post('/jobs',status_code=202)
+def new_job(b:JobIn,bg:BackgroundTasks,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    need_member(db,user,b.project_id)
+    if b.engine not in ENGINES: raise HTTPException(400,'Engine haijulikani')
+    j=Job(id=str(uuid.uuid4()),project_id=b.project_id,engine=b.engine,params_json=json.dumps(b.params),requested_by=user.id); db.add(j); db.commit()
+    bg.add_task(run_job,j.id); return {'id':j.id,'status':'queued'}  # prod: badilisha na foleni (RQ/Celery) kwa engines nzito
+@app.get('/jobs/{jid}')
+def get_job(jid:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    j=db.get(Job,jid)
+    if not j: raise HTTPException(404,'Kazi haipo')
+    need_member(db,user,j.project_id)
+    return {'id':j.id,'engine':j.engine,'engine_version':j.engine_version,'status':j.status,'input_hash':j.input_hash,'params':json.loads(j.params_json),
+        'result':json.loads(j.result_json) if j.result_json else None,'warnings':json.loads(j.warnings_json or '[]'),'error':j.error,'review_state':j.review_state,
+        'started_at':j.started_at,'finished_at':j.finished_at}
+_F=os.getenv('FRONTEND_DIR') or next((p for p in (os.path.join(os.path.dirname(__file__),'..','..','frontend'),'frontend') if os.path.isdir(p)),None)
+if _F: app.mount('/',StaticFiles(directory=_F,html=True))

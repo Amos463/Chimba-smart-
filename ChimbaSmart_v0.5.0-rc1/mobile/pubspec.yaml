@@ -1,0 +1,28 @@
+name: chimbasmart
+description: Offline-first cross-platform geological field data platform.
+version: 0.2.0+2
+publish_to: none
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.4.2
+  sqflite_common_ffi: ^2.3.6
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  uuid: ^4.5.1
+  geolocator: ^14.0.2
+  image_picker: ^1.1.2
+  connectivity_plus: ^6.1.4
+  dio: ^5.8.0+1
+  file_picker: ^10.1.9
+  shared_preferences: ^2.5.3
+  flutter_secure_storage: ^9.2.4
+  crypto: ^3.0.6
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true

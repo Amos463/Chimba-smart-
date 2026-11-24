@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>NSLocationWhenInUseUsageDescription</key><string>ChimbaSmart hutumia GPS kuweka eneo la vipimo vya kijiolojia.</string>
+<key>NSCameraUsageDescription</key><string>ChimbaSmart hutumia kamera kurekodi sampuli na miamba.</string>
+</dict></plist>

@@ -1,0 +1,19 @@
+CHIMBASMART v0.5.0-rc1 — CODESPACES HANDOFF
+
+1. Extract ZIP into a clean Codespace workspace.
+2. Run: chmod +x scripts/codespaces_verify.sh && ./scripts/codespaces_verify.sh
+3. Do not continue if Python compile, pytest, JavaScript syntax, or fresh SQLite migration fails.
+4. Run optional PyKrige checks: python -m pip install -r backend/requirements-geostatistics.txt
+5. For PostgreSQL/PostGIS migration test, point TEST_POSTGRES_URL at a disposable PostGIS database, then run:
+   cd backend && TEST_POSTGRES_URL='postgresql+psycopg://...' python -m pytest tests/test_postgres_postgis.py -q
+6. For browser IndexedDB storage smoke test, serve frontend/ on the same origin and open /tests/offline_storage_smoke.html.
+7. Inspect QA/QC failures, sample-type filtering, report output, image upload and offline queue on a real Android browser before pilot.
+
+IMPORTANT LIMITATIONS
+- PWA is the implemented field client; Flutter remains a skeleton.
+- Offline plot is a projected coordinate plot, not offline basemap, GIS layer manager or license-boundary viewer.
+- Basic blank/standard/duplicate QA checks are not a laboratory QA certification system.
+- Access token defaults to 30 days. Refresh/revocation and persistent Redis-backed rate limiting are still needed for larger production deployments.
+- PyKrige is optional and its runtime test skips if dependency is absent.
+- GemPy, LoopStructural, PyGSLIB and pyGIMLi are intentionally unavailable adapters.
+- Never market outputs as mineral resource/reserve estimates or JORC/NI 43-101 reports.

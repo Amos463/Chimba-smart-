@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ChimbaSmart IndexedDB smoke test</title>
+<h1>ChimbaSmart offline storage smoke test</h1>
+<p>Fungua ukurasa huu kwenye browser ileile/origin ya PWA baada ya kuanzisha app.</p>
+<button id="run">Run IndexedDB test</button><pre id="out">Haijaanza.</pre>
+<script>
+const out=document.querySelector('#out');
+document.querySelector('#run').onclick=async()=>{
+ const lines=[]; const log=x=>lines.push(x);
+ try{
+  const db=await new Promise((ok,no)=>{const r=indexedDB.open('chimbasmart-offline-v1',1);r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error);});
+  for(const store of ['queue','rejected','photos','serverRecords','meta']) if(!db.objectStoreNames.contains(store)) throw Error('Store missing: '+store);
+  const key='smoke-'+crypto.randomUUID(), blob=new Blob(['image-bytes'],{type:'image/jpeg'});
+  await new Promise((ok,no)=>{const tx=db.transaction(['queue','photos'],'readwrite');tx.objectStore('queue').put({key,owner:'smoke-user',record:{record_uuid:key,project_id:'smoke-project'}});tx.objectStore('photos').put({key,owner:'smoke-user',project_id:'smoke-project',blob});tx.oncomplete=ok;tx.onerror=()=>no(tx.error);});
+  const found=await new Promise((ok,no)=>{const tx=db.transaction(['queue','photos'],'readonly');const q=tx.objectStore('queue').get(key),p=tx.objectStore('photos').get(key);tx.oncomplete=()=>ok({q:q.result,p:p.result});tx.onerror=()=>no(tx.error);});
+  if(!found.q||!found.p||found.p.blob.size!==blob.size) throw Error('IndexedDB read/write mismatch');
+  log('PASS: queue record persisted and read back');
+  log('PASS: image Blob persisted and read back');
+  await new Promise((ok,no)=>{const tx=db.transaction(['queue','photos'],'readwrite');tx.objectStore('queue').delete(key);tx.objectStore('photos').delete(key);tx.oncomplete=ok;tx.onerror=()=>no(tx.error);});
+  log('PASS: cleanup');
+  db.close();
+ }catch(e){log('FAIL: '+e.message);}
+ out.textContent=lines.join('\n');
+};
+</script>

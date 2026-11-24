@@ -1,0 +1,22 @@
+<!doctype html><html lang="sw"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ChimbaSmart</title><meta name="theme-color" content="#0f4c47"><link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css"></head><body>
+<header><button id="back" hidden aria-label="Rudi">←</button><h1>ChimbaSmart</h1><span id="st">…</span></header><main>
+<section id="login"><h2>Karibu</h2><label for="ph">Jina la mtumiaji</label><input id="ph" autocomplete="username" autocapitalize="none">
+<label for="pin">Nenosiri</label><input id="pin" type="password" autocomplete="current-password"><p class="msg" id="lm"></p>
+<button class="btn" id="go">Ingia</button><p class="note">Akaunti inatolewa na msimamizi wako.</p></section>
+<section id="home"><button class="big g" data-go="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Ongeza sampuli</button>
+<button class="big" data-go="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/></svg>Ramani</button>
+<button class="big w" data-go="rep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/></svg>Ripoti</button>
+<p class="note" id="qn"></p><button class="btn o" id="retrySync">Jaribu kusawazisha tena</button><button class="btn o" id="relogin">Ingia tena / badili akaunti</button><div class="box" id="rejectedList" hidden></div><p class="note">Sampuli na picha huhifadhiwa kwenye simu kwanza. Picha husawazishwa seva ikipatikana; ramani ya nje inaweza kukosa tiles bila mtandao.</p></section>
+<section id="add"><button class="btn o" id="gps">Chukua mahali nilipo</button><p class="note" id="gp">Mahali bado hapajachukuliwa</p>
+<label for="id">Namba ya sampuli</label><input id="id" placeholder="Mfano: SAMP-001">
+<label for="kd">Aina ya sampuli</label><select id="kd"><option value="rock_chip">Rock chip</option><option value="soil">Udongo</option><option value="stream_sediment">Mchanga wa mto</option><option value="channel">Channel</option><option value="surface">Sampuli ya uso</option></select>
+<label for="rk">Aina ya mwamba (hiari)</label><select id="rk"><option value="">Haijajulikana</option><option>Quartz (mwamba mweupe)</option><option>Oxide (mwamba wa kutu)</option><option>Granite</option><option>Schist</option><option>Greenstone</option><option>Laterite (udongo mwekundu)</option><option>Nyingine</option></select>
+<label for="gr">Assay ya maabara (g/t), hiari</label><input id="gr" type="number" inputmode="decimal" min="0" step="0.01">
+<label for="lab">Jina la maabara / cheti (hiari)</label><input id="lab" placeholder="Maabara / certificate ref">
+<label for="phfile">Picha ya sampuli (JPEG/PNG/WEBP, hadi MB 10)</label><input id="phfile" type="file" accept="image/jpeg,image/png,image/webp" capture="environment">
+<label for="sk">Strike (Right-Hand Rule / RHR), 0-360°, si dip direction</label><input id="sk" type="number" inputmode="decimal" min="0" max="360"><label for="dc">Dip kwa dira (0-90), hiari</label><input id="dc" type="number" inputmode="decimal" min="0" max="90"><p class="msg" id="am"></p><button class="btn" id="sv">Hifadhi bila mtandao pia</button></section>
+<section id="mapv"><label for="mapType">Aina ya sampuli ya uchambuzi</label><select id="mapType"><option value="">Aina yenye rekodi nyingi (haitachanganya aina)</option><option value="rock_chip">Rock chip</option><option value="soil">Udongo</option><option value="stream_sediment">Mchanga wa mto</option><option value="channel">Channel</option><option value="surface">Surface</option></select><div id="map" aria-label="Ramani ya sampuli"></div><p class="lg note"><i style="background:#c0392b"></i>kidogo<i style="background:#e0a800"></i>wastani<i style="background:#1e8449"></i>nyingi</p><div class="box" id="tr"></div></section>
+<section id="rep"><div class="box">Ripoti ya PDF ina ramani, jedwali la mashimo na mwelekeo wa madini.</div><button class="btn" id="pdf">Tengeneza na shiriki PDF</button></section></main>
+<script src="app.js"></script></body></html>
