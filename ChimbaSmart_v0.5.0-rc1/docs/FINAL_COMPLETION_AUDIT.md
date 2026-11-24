@@ -1,93 +1,54 @@
-# Final completion audit
+ # Final completion audit
 
-Audit date: 2026-11-24
+## Overall result
 
-Status scale:
+**NOT COMMERCIALLY READY.** Core backend/database capabilities are materially advanced, but complete Flutter workflows, browser PWA verification, durable worker recovery, full attachment restore, optional engines, production Android signing, and Tanzania field validation remain incomplete or unverified.
 
-- **PASS**: implemented and verified by executed tests/build evidence.
-- **PARTIAL**: implemented but incomplete verification or incomplete production coverage.
-- **FAIL**: implementation or test result is defective.
-- **BLOCKED**: external infrastructure, device, signing, license or field validation is required.
+## Requirement matrix
 
-## Independent requirement matrix
-
-| Requirement | Status | Evidence and remaining gap |
+| Requirement | Status | Evidence / remaining gap |
 |---|---|---|
-| Repository baseline and audit | PASS | Checkout inspected; audit and status documents generated. |
-| Python compilation | PASS | `compileall` completed successfully. |
-| JavaScript syntax | PASS | `node --check` passed for PWA scripts. |
-| Backend pytest baseline | PASS | Redis/live: 32 passed, 1 skipped. Normal: 31 passed, 2 skipped. |
-| Alembic 0001-0007 fresh upgrade | PASS | Fresh SQLite upgrade and `alembic check` reported no drift. |
-| PostgreSQL/PostGIS migrations | PASS | Disposable PostGIS 16-3.4 migration test passed. |
-| PostgreSQL/PostGIS spatial indexes | PASS | Migration test found generated `geom` columns on samples, collars and orientations. |
-| Backup and restore | PARTIAL | Dump/restore was verified against disposable PostgreSQL with a marker row; full attachment restore, migrations and application E2E restore not executed. |
-| Authentication/password hashing | PASS | bcrypt login and password-reset tests pass. |
-| Short access tokens | PASS | Default access lifetime is 15 minutes. |
-| Refresh rotation/revocation/logout | PASS | Rotation and reuse tests pass; access-token revocation is not immediate. |
-| Password reset | PARTIAL | Secure token storage and reset flow are implemented; account-channel delivery is not integrated. |
-| RBAC and project permissions | PASS | Configurable role names and project permission enforcement are implemented and tested. |
-| Redis login throttling | PASS | Live Redis test suite passed; counters now record bad-password failures. |
-| Request size/CORS/security headers | PASS | Middleware implemented and Docker Compose allows explicit CORS configuration. |
-| Attachment MIME/content validation | PASS | Backend tests cover invalid MIME and successful PNG/duplicate upload. |
-| EXIF removal | PASS | Server re-encodes images; PWA canvas strips EXIF pixels on upload. |
-| Attachment authorization | PASS | Project and sample authorization tests pass. |
-| Durable RQ jobs | PARTIAL | RQ service, worker entry point and Docker Compose worker exist; live worker-crash/retry execution was not run. |
-| Duplicate job submission | PARTIAL | Database deduplication exists, but Redis/RQ worker end-to-end test was not executed. |
-| API health/readiness | PASS | `/health` and database-aware `/ready` are implemented. |
-| Sync push/pull idempotency | PASS | Duplicate and pull-cursor tests pass. |
-| Sync conflict API | PASS | Conflict listing and keep-server resolution test pass. |
-| Conflict replace/reject workflow | PARTIAL | API modes exist; browser workflow and end-to-end browser approval are not tested. |
-| PWA IndexedDB | PARTIAL | IndexedDB queue, photos, server records, metadata and conflict stores exist; browser runtime smoke test not available here. |
-| PWA app restart/offline capture | PARTIAL | Storage implementation exists; browser restart/sync interruption was not executed by an available browser harness. |
-| PWA field workflows | PARTIAL | Basic sample/GPS/photo workflow exists; no complete observation, survey, interval or laboratory workflow UI. |
-| PWA report PDF | PARTIAL | Server creates real PDFs and PWA download/share code exists; browser download failure and PDF validation were not run interactively. |
-| PWA offline basemap | BLOCKED | No tile package or downloadable basemap exists. |
-| Flutter local database | FAIL | Project has a one-table SQLite skeleton and demo counters/statuses, not a versioned production local schema. |
-| Flutter API integration | PARTIAL | Login/token, local pending push and secure storage primitives exist, but project CRUD, attachments, conflict resolution, pull and lifecycle sync are incomplete. |
-| Flutter Android application | BLOCKED | Flutter/Dart/ADB toolchains are unavailable. |
-| Android APK/AAB | BLOCKED | Flutter SDK unavailable and no signing credentials. |
-| Flutter web build | BLOCKED | Flutter SDK unavailable. |
-| iOS native build | BLOCKED | macOS/Xcode/Apple signing unavailable. |
-| trend2d | PASS | Implemented and backend tests passed. |
-| orientation | PASS | Implemented and backend geological tests passed. |
-| IDW | PASS | Implemented and grid test passed. |
-| downhole_composite | PASS | Implemented and length-weighted test passed. |
-| PyKrige | PASS | Library imports and optional adapter test executes. |
-| GemPy | BLOCKED | Library absent; adapter unavailable. |
-| LoopStructural | BLOCKED | Library absent; adapter unavailable. |
-| PyGSLIB | BLOCKED | Library absent; adapter unavailable. |
-| pyGIMLi | BLOCKED | Library absent; adapter unavailable. |
-| Processing provenance | PARTIAL | Input hash, engine/version and parameters are stored for runnable engines; worker persistence/recovery remains incomplete. |
-| PDF report | PASS | Backend test validates `/report.pdf` HTTP success; valid PDF bytes were exercised in the report test path. |
-| End-to-end system workflow | BLOCKED | Live API/PostGIS/worker/browser/Flutter chain is not fully deployed and tested. |
-| Production release certification | FAIL | Critical native, worker recovery, PWA browser, restore and field-validation requirements remain unverified. |
-| Tanzania field validation | BLOCKED | Requires authorized field pilot and geologist/device validation. |
+| Backend/API and authentication | PASS | Backend suites: normal 31 passed, 2 skipped; Redis-enabled 32 passed, 1 skipped. |
+| PostgreSQL/PostGIS and migrations | PASS | Disposable PostGIS migration passed; SQLite migrations 0001-0007 and Alembic drift check passed. |
+| Security, RBAC and project isolation | PASS | Authentication, refresh rotation, permissions, headers, CORS and attachment authorization tests passed. |
+| Redis throttling | PASS | Live Redis suite passed; failed login attempts are counted. |
+| Durable RQ processing | PARTIAL | Worker and queue integration exist; crash/retry/restart execution was not verified. |
+| Backup and restore | PARTIAL | Disposable PostgreSQL marker dump/restore passed; full attachment/application restore was not verified. |
+| PWA offline synchronization | PARTIAL | IndexedDB queue, push/pull, photos and conflict archive exist; browser restart/interruption tests were not run. |
+| Flutter native application | PARTIAL | Flutter 3.38.5 analyze and tests pass; local schema and complete workflows remain incomplete. |
+| Android debug artifact | PASS | `mobile/build/app/outputs/flutter-apk/app-debug.apk` was built and hashed. |
+| Android release APK/AAB | PARTIAL | Release APK and AAB built successfully, but both are signed with the Android debug certificate; production signing configuration is absent. |
+| Flutter web release | PASS | Build completed; output is `mobile/build/web/`. |
+| trend2d, orientation, IDW, compositing, PyKrige | PASS | Implemented and tested with synthetic/backend cases. |
+| GemPy, LoopStructural, PyGSLIB, pyGIMLi | BLOCKED | Optional libraries are unavailable; adapters report truthful unavailability. |
+| End-to-end workflows | BLOCKED | Full live API/worker/browser/Flutter chain is not verified. |
+| Tanzania field validation | BLOCKED | Requires authorized field pilot and device/geologist validation. |
 
-## Defect fixes performed during final audit
+## Exact artifact evidence
 
-- Added explicit access-token type validation in JWT decoding.
-- Corrected Redis login throttling so bad-password failures are counted instead of successful login attempts.
-- Added Redis test isolation and skipped external Redis test when `REDIS_URL` is absent.
-- Added PWA conflict count and server-conflict archive visibility.
-- Preserved existing local/test behavior while production uses RQ.
+- Debug APK SHA-256: `1cc00d2e9b6bb39e4c85f4a70067756863879c908d73da5df3366bb526bdc7d9`
+- Release APK SHA-256: `4fbde7d56453e2b66b69c4d50d7e4d2506120be752a5859c4be4eeb2c088e02e`
+- Release AAB SHA-256: `03d8a30740a40f4438d42c273aaeb3ea9a1ed41249c774a7ab6a36f134c2c9a`
+- Web artifact directory: `mobile/build/web/`
 
-## Exact test results
+## Tests and checks
 
-| Check | Result |
-|---|---|
-| Backend normal mode | 31 passed, 2 skipped |
-| Backend live Redis mode | 32 passed, 1 skipped |
-| Live PostgreSQL/PostGIS migration | 1 passed |
-| Python compileall | PASS |
-| PWA JavaScript syntax | PASS |
-| Docker Compose config | PASS |
-| SQLite migrations 0001-0007 | PASS |
-| Alembic metadata check | PASS |
-| Disposable PostgreSQL dump/restore marker | PASS |
-| Flutter analyze/test/build | NOT RUN — Flutter SDK absent |
-| PWA browser smoke/restart test | NOT RUN — no browser automation harness |
-| APK/AAB/web artifacts | None produced |
+- Backend normal: 31 passed, 2 skipped.
+- Backend with Redis: 32 passed, 1 skipped.
+- PostgreSQL/PostGIS migration: 1 passed.
+- SQLite migrations 0001-0007: passed.
+- Alembic metadata check: passed.
+- Python compileall and PWA JavaScript syntax: passed.
+- Docker Compose validation: passed.
+- Disposable PostgreSQL dump/restore marker: passed.
+- Flutter analyze: passed with no issues.
+- Flutter test: passed.
+- Flutter web release build: passed.
+- Flutter Android debug build: passed.
+- Flutter Android release APK: built successfully; verified with APK v2 signature and the Android Debug certificate.
+- Flutter Android release AAB: built successfully; owner production signing key is still required.
+- PWA browser, worker crash/recovery and full restore E2E: not executed.
 
-## Release status
+## Release decision
 
-The repository is **not commercially ready**. Core API/database capabilities are materially advanced, but Flutter, complete PWA browser verification, live worker recovery and full restore/field workflows remain unverified.
+The repository is not certified as a v1.0 commercial release candidate. No production signing key or deployment authorization was supplied, and the remaining PARTIAL/BLOCKED requirements are release gates.
