@@ -18,7 +18,9 @@ class TokenOut(BaseModel):
     token_type:str='bearer'
 class UserIn(BaseModel): username:str=Field(min_length=3,max_length=100); password:str=Field(min_length=8,max_length=200); role:str='field_user'
 class ProjectIn(BaseModel): name:str=Field(min_length=1,max_length=200); projected_crs:str='auto'
-class MemberIn(BaseModel): username:str; role:str='member'
+class MemberIn(BaseModel):
+    username:str=Field(min_length=3,max_length=100)
+    role:str='member'
 class JobIn(BaseModel): project_id:str; engine:str; params:dict[str,Any]={}
 class RefreshIn(BaseModel): refresh_token:str=Field(min_length=32,max_length=512)
 class LogoutIn(BaseModel): refresh_token:str|None=Field(None,min_length=32,max_length=512)

@@ -13,3 +13,19 @@ REDIS_URL=os.getenv('REDIS_URL','')
 CORS_ORIGINS=[x.strip() for x in os.getenv('CORS_ORIGINS','').split(',') if x.strip()]
 AUTO_CREATE_TABLES=os.getenv('AUTO_CREATE_TABLES','1' if DATABASE_URL.startswith('sqlite') else '0')=='1'
 LOGIN_MAX_FAILS=5; LOGIN_IP_MAX_FAILS=30; LOGIN_WINDOW_S=900
+
+PROJECT_ROLES={
+    'organization_admin','project_manager','geologist','field_technician',
+    'laboratory_reviewer','read_only','owner','member','admin',
+}
+PROJECT_ROLE_PERMISSIONS={
+    'owner':{'manage_project','manage_members','create','update','delete','sync','process','report','review'},
+    'project_manager':{'manage_project','manage_members','create','update','delete','sync','process','report','review'},
+    'organization_admin':{'manage_project','manage_members','create','update','delete','sync','process','report','review'},
+    'geologist':{'create','update','sync','process','report','review'},
+    'laboratory_reviewer':{'create','update','sync','process','report','review'},
+    'field_technician':{'create','update','sync','report'},
+    'read_only':{'report'},
+    'member':{'create','update','sync','process','report'},
+    'admin':{'manage_project','manage_members','create','update','delete','sync','process','report','review'},
+}

@@ -39,6 +39,44 @@ def need_member(db,user,pid,owner=False):
     m=db.get(ProjectMember,(pid,user.id))
     if not m or (owner and m.role!='owner'): raise HTTPException(403,'Huna ruhusa ya mradi huu')
     return p
+
+
+def require_permission(db,user,pid,permission):
+    p=need_member(db,user,pid)
+    if user.role=='admin':
+        return p
+    m=db.get(ProjectMember,(pid,user.id))
+    role=m.role if m else ''
+    if permission not in config.PROJECT_ROLE_PERMISSIONS.get(role,set()):
+        raise HTTPException(403,'Huna ruhusa ya hatua hii')
+    return p
+
+
+def redis_client():
+    if not config.REDIS_URL:
+        return None
+    try:
+        import redis
+        return redis.Redis.from_url(config.REDIS_URL,decode_responses=True,socket_connect_timeout=2)
+    except Exception:
+        return None
+
+
+def distributed_throttle(key,limit,window_s):
+    client=redis_client()
+    if client is None:
+        return
+    try:
+        now=int(time.time()); bucket=f'rate:{key}:{now//window_s}'
+        count=client.incr(bucket)
+        if count==1:
+            client.expire(bucket,window_s)
+        if count>limit:
+            raise HTTPException(429,'Majaribio mengi. Subiri kisha jaribu tena.')
+    except HTTPException:
+        raise
+    except Exception:
+        return
 FAILS=collections.defaultdict(list)  # kwenye kumbukumbu ya process moja; prod yenye workers nyingi: tumia Redis
 
 
@@ -97,6 +135,8 @@ def login(b:LoginIn,request:Request,db:Session=Depends(get_db)):
     user_key=f'user:{username}:ip:{ip}'
     ip_key=f'ip:{ip}'
     throttle(user_key,config.LOGIN_MAX_FAILS); throttle(ip_key,config.LOGIN_IP_MAX_FAILS)
+    distributed_throttle(user_key,config.LOGIN_MAX_FAILS,config.LOGIN_WINDOW_S)
+    distributed_throttle(ip_key,config.LOGIN_IP_MAX_FAILS,config.LOGIN_WINDOW_S)
     u=db.query(User).filter(User.username==username).first()
     if not u or not verify_password(b.password,u.password_hash):
         now=time.time(); FAILS[user_key].append(now); FAILS[ip_key].append(now)
@@ -198,12 +238,15 @@ def my_projects(user:User=Depends(current_user),db:Session=Depends(get_db)):
     return [{'id':p.id,'name':p.name,'projected_crs':p.projected_crs} for p in q.all()]
 @app.post('/projects/{pid}/members',status_code=201)
 def add_member(pid:str,b:MemberIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
-    need_member(db,user,pid,owner=True); u=db.query(User).filter_by(username=b.username.lower()).first()
+    require_permission(db,user,pid,'manage_members')
+    if b.role not in config.PROJECT_ROLES:
+        raise HTTPException(400,'Nafasi ya mradi haijulikani')
+    u=db.query(User).filter_by(username=b.username.lower()).first()
     if not u: raise HTTPException(404,'Mtumiaji hayupo')
     db.merge(ProjectMember(project_id=pid,user_id=u.id,role=b.role)); db.commit(); return {'ok':True}
 @app.post('/sync/push',response_model=PushResponse)
 def push(body:PushRequest,user:User=Depends(current_user),db:Session=Depends(get_db)):
-    for pid in {r.project_id for r in body.records}: need_member(db,user,pid)
+    for pid in {r.project_id for r in body.records}: require_permission(db,user,pid,'sync')
     acks=[]
     for it in sorted(body.records,key=lambda r:typed.PRIORITY.get(r.record_type,9)):
         h=sha(it.payload)
@@ -221,7 +264,7 @@ def push(body:PushRequest,user:User=Depends(current_user),db:Session=Depends(get
 @app.get('/sync/pull',response_model=PullResponse)
 def pull(project_id:str,cursor:int=0,limit:int=200,user:User=Depends(current_user),db:Session=Depends(get_db)):
     if limit<1 or limit>500: raise HTTPException(400,'limit iwe 1..500')
-    need_member(db,user,project_id)
+    require_permission(db,user,project_id,'sync')
     rows=db.query(Record).filter(Record.project_id==project_id,Record.id>cursor).order_by(Record.id).limit(limit).all()
     return PullResponse(records=[{'record_uuid':r.record_uuid,'project_id':r.project_id,'record_type':r.record_type,'payload':json.loads(r.payload_json),
         'created_at_utc':r.created_at_utc.isoformat(),'updated_at_utc':r.updated_at_utc.isoformat(),'server_version':r.server_version,'crs':r.crs,
@@ -323,13 +366,35 @@ def run_job(job_id):
         if errs: j.status='rejected'; j.error='; '.join(errs)
         else: j.result_json=json.dumps(e.run(ds,params),default=str); j.status='done'
     except Exception as ex: db.rollback(); j=db.get(Job,job_id); j.status='failed'; j.error=str(ex)[:500]
-    j.finished_at=utcnow(); db.commit(); db.close()
+    j.finished_at=utcnow(); db.commit()
+    final_status=j.status
+    db.close()
+    return {'job_id':job_id,'status':final_status}
 @app.post('/jobs',status_code=202)
 def new_job(b:JobIn,bg:BackgroundTasks,user:User=Depends(current_user),db:Session=Depends(get_db)):
-    need_member(db,user,b.project_id)
+    require_permission(db,user,b.project_id,'process')
     if b.engine not in ENGINES: raise HTTPException(400,'Engine haijulikani')
+    params_hash=hashlib.sha256(canon({'project_id':b.project_id,'engine':b.engine,'params':b.params}).encode()).hexdigest()
+    existing=db.query(Job).filter_by(project_id=b.project_id,engine=b.engine,params_json=json.dumps(b.params),requested_by=user.id).first()
+    if existing:
+        return {'id':existing.id,'status':existing.status,'deduplicated':True,'input_hash':existing.input_hash}
     j=Job(id=str(uuid.uuid4()),project_id=b.project_id,engine=b.engine,params_json=json.dumps(b.params),requested_by=user.id); db.add(j); db.commit()
-    bg.add_task(run_job,j.id); return {'id':j.id,'status':'queued'}  # prod: badilisha na foleni (RQ/Celery) kwa engines nzito
+    if config.REDIS_URL:
+        try:
+            from redis import Redis
+            from rq import Queue
+            queue=Queue('chimbasmart',connection=Redis.from_url(config.REDIS_URL))
+            queue.enqueue('app.worker.execute_job',j.id,job_timeout='30m',failure_ttl=86400,retries=0,job_id=j.id)
+            audit(db,None,'job.queued',actor_id=user.id,project_id=j.project_id,resource_type='job',resource_id=j.id)
+            db.commit()
+        except Exception as exc:
+            j.status='failed'; j.error='Durable queue unavailable'; j.finished_at=utcnow(); db.commit()
+            audit(db,None,'job.queue_failed',actor_id=user.id,project_id=j.project_id,resource_type='job',resource_id=j.id,outcome='failed',details={'error':'queue unavailable'})
+            db.commit()
+            raise HTTPException(503,'Mfumo wa kazi haupatikani') from exc
+    else:
+        bg.add_task(run_job,j.id)
+    return {'id':j.id,'status':'queued','deduplicated':False}
 @app.get('/jobs/{jid}')
 def get_job(jid:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
     j=db.get(Job,jid)

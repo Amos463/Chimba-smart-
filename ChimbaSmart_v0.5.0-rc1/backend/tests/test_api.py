@@ -218,3 +218,18 @@ def test_password_reset_revokes_refresh_sessions(client):
     request=client.post('/auth/password-reset/request',json={'username':n})
     assert request.status_code==200
     assert client.post('/auth/refresh',json={'refresh_token':refresh}).status_code==200
+
+
+def test_configurable_project_role_permissions(ctx,client):
+    h,p=ctx
+    technician=mkuser()
+    assert client.post(f'/projects/{p}/members',json={'username':technician,'role':'field_technician'},headers=h).status_code==201
+    technician_headers=hdr(client,technician)
+    assert client.post('/jobs',json={'project_id':p,'engine':'trend2d'},headers=technician_headers).status_code==403
+
+
+def test_redis_rate_limit_is_available(client):
+    import redis
+    r=redis.Redis(host='127.0.0.1',port=56379,decode_responses=True)
+    r.ping()
+    r.incr('test:rate-limit')

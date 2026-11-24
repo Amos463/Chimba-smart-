@@ -1,4 +1,9 @@
 services:
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server","--appendonly","yes"]
+    volumes: [redisdata:/data]
+    healthcheck: {test: ["CMD","redis-cli","ping"], interval: 5s, timeout: 5s, retries: 10}
   db:
     image: postgis/postgis:16-3.4
     environment: {POSTGRES_DB: chimbasmart, POSTGRES_USER: chimba, POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"}
@@ -11,9 +16,25 @@ services:
       DATABASE_URL: postgresql+psycopg://chimba:${POSTGRES_PASSWORD}@db:5432/chimbasmart
       JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in .env}"
       ATTACHMENTS_DIR: /app/data/attachments
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:8000}"
     volumes: [attachments_data:/app/data/attachments]
     ports: ["8000:8000"]
     depends_on: {db: {condition: service_healthy}}
+  worker:
+    build: {context: ., dockerfile: backend/Dockerfile}
+    command: ["rq","worker","chimbasmart","--url","redis://redis:6379/0"]
+    environment:
+      ENV: prod
+      DATABASE_URL: postgresql+psycopg://chimba:${POSTGRES_PASSWORD}@db:5432/chimbasmart
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in .env}"
+      ATTACHMENTS_DIR: /app/data/attachments
+      REDIS_URL: redis://redis:6379/0
+    volumes: [attachments_data:/app/data/attachments]
+    depends_on:
+      redis: {condition: service_healthy}
+      db: {condition: service_healthy}
 volumes:
   pgdata: {}
   attachments_data: {}
+  redisdata: {}
