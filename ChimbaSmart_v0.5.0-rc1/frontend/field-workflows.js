@@ -285,6 +285,7 @@ sync=async(...args)=>{
   if(!idb||!S.user||!S.pid)return;
   await Promise.all([renderSamples(),refreshConflicts()]);
 };
+$('#retrySync').onclick=sync;
 
 document.addEventListener('chimba-ready',async()=>{
   try{await loadProjects()}catch(error){if(navigator.onLine)$('#qn').textContent=error.message}
