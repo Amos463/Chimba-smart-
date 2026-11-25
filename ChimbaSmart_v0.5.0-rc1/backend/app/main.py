@@ -10,7 +10,7 @@ import jwt
 from . import config,dataset,typed,report
 from .engines import ENGINES,DISCLAIMER,quick
 from .db import Base,engine,get_db,SessionLocal
-from .models import User,Project,ProjectMember,Record,SyncConflict,Job,Attachment,Sample,RefreshSession,PasswordResetToken,AuditEvent,utcnow
+from .models import User,Project,ProjectMember,Record,SyncConflict,Job,Attachment,Sample,Assay,QAWaiver,RefreshSession,PasswordResetToken,AuditEvent,utcnow
 from .schemas import *
 from .security import verify_password,hash_password,create_token,decode_token
 app=FastAPI(title='ChimbaSmart API',version='0.5.0-rc1',description='Offline-first geological field data API')
@@ -60,6 +60,16 @@ def require_permission(db,user,pid,permission):
     if permission not in config.PROJECT_ROLE_PERMISSIONS.get(role,set()):
         raise HTTPException(403,'Huna ruhusa ya hatua hii')
     return p
+
+
+def require_qa_admin(db,user,pid):
+    project=need_member(db,user,pid)
+    if user.role=='admin':
+        return project
+    member=db.get(ProjectMember,(pid,user.id))
+    if not member or member.role!='owner':
+        raise HTTPException(403,'Mmiliki wa mradi au msimamizi tu ndiye anayeweza kusimamia waiver za QA/QC')
+    return project
 
 
 def redis_client():
@@ -314,6 +324,94 @@ def pull(project_id:str,cursor:int=0,limit:int=200,user:User=Depends(current_use
         'created_at_utc':r.created_at_utc.isoformat(),'updated_at_utc':r.updated_at_utc.isoformat(),'server_version':r.server_version,'crs':r.crs,
         'deleted_at_utc':r.deleted_at_utc.isoformat() if r.deleted_at_utc else None} for r in rows],
         next_cursor=rows[-1].id if rows else cursor)
+
+
+@app.get('/projects/{pid}/samples')
+def list_project_samples(pid:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    project=require_permission(db,user,pid,'report')
+    samples=db.query(Sample).filter_by(project_id=pid).order_by(Sample.sample_id).all()
+    if not samples:
+        return {'project_id':pid,'samples':[]}
+    sample_ids={sample.sample_id for sample in samples}
+    latest_assays={}
+    for assay in db.query(Assay).filter(Assay.project_id==pid,Assay.sample_id.in_(sample_ids)).order_by(Assay.id):
+        latest_assays[assay.sample_id]=assay
+    attachments=collections.Counter(
+        row.sample_id for row in db.query(Attachment).filter(
+            Attachment.project_id==pid,Attachment.sample_id.in_(sample_ids)
+        ).all()
+    )
+    records={
+        row.record_uuid:row for row in db.query(Record).filter(
+            Record.project_id==pid,Record.record_type=='sample',
+            Record.record_uuid.in_([sample.record_uuid for sample in samples])
+        ).all()
+    }
+    dataset_samples={
+        sample['sample_id']:sample
+        for sample in dataset.build(db,project)['samples']
+    }
+    result=[]
+    for sample in samples:
+        assay=latest_assays.get(sample.sample_id)
+        record=records.get(sample.record_uuid)
+        result.append({
+            'sample_id':sample.sample_id,'record_uuid':sample.record_uuid,'sample_type':sample.sample_type,
+            'lat':sample.lat,'lon':sample.lon,'elevation_m':sample.elevation_m,
+            'gps_accuracy_m':sample.gps_accuracy_m,'lithology':sample.lithology,'description':sample.description,
+            'latest_assay':{
+                'value_num':assay.value_num,'unit':assay.unit,'lab_name':assay.lab_name,
+                'certificate_ref':assay.certificate_ref,'method':assay.method,
+                'detection_limit':assay.detection_limit,'below_detection':assay.below_detection,
+                'qa_role':assay.qa_role or 'primary','batch_id':assay.batch_id,
+            } if assay else None,
+            'qa_status':dataset_samples.get(sample.sample_id,{}).get('qa_status','not_assessed'),
+            'assay_status':dataset_samples.get(sample.sample_id,{}).get('assay_status','no_assay'),
+            'grade':dataset_samples.get(sample.sample_id,{}).get('grade'),
+            'grade_basis':dataset_samples.get(sample.sample_id,{}).get('grade_basis'),
+            'attachment_count':attachments.get(sample.sample_id,0),
+            'sync_status':'synced' if record else 'missing_sync_record',
+            'server_version':record.server_version if record else None,
+            'updated_at_utc':record.updated_at_utc.isoformat() if record else None,
+            'deleted_at_utc':record.deleted_at_utc.isoformat() if record and record.deleted_at_utc else None,
+        })
+    return {'project_id':pid,'samples':result}
+
+
+@app.post('/projects/{pid}/qa/waivers',status_code=201)
+def create_qa_waiver(pid:str,b:QAWaiverIn,request:Request,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    require_qa_admin(db,user,pid)
+    waiver=QAWaiver(
+        id=str(uuid.uuid4()),project_id=pid,batch_id=b.batch_id,reason=b.reason,
+        created_by=user.id,created_by_username=user.username,created_at=utcnow(),
+    )
+    db.add(waiver)
+    audit(db,request,'qa.waiver_created',actor_id=user.id,project_id=pid,resource_type='qa_waiver',
+          resource_id=waiver.id,details={'batch_id':waiver.batch_id,'reason':waiver.reason})
+    db.commit()
+    return {
+        'id':waiver.id,'project_id':pid,'batch_id':waiver.batch_id,'reason':waiver.reason,
+        'created_by_username':waiver.created_by_username,'created_at':waiver.created_at,
+        'revoked_at':None,
+    }
+
+
+@app.delete('/projects/{pid}/qa/waivers/{waiver_id}')
+def revoke_qa_waiver(pid:str,waiver_id:str,request:Request,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    require_qa_admin(db,user,pid)
+    waiver=db.query(QAWaiver).filter_by(id=waiver_id,project_id=pid).first()
+    if not waiver:
+        raise HTTPException(404,'Waiver haipo')
+    if waiver.revoked_at is not None:
+        raise HTTPException(409,'Waiver tayari imebatilishwa')
+    waiver.revoked_at=utcnow()
+    waiver.revoked_by=user.id
+    audit(db,request,'qa.waiver_revoked',actor_id=user.id,project_id=pid,resource_type='qa_waiver',
+          resource_id=waiver.id,details={'batch_id':waiver.batch_id,'reason':waiver.reason})
+    db.commit()
+    return {'id':waiver.id,'revoked_at':waiver.revoked_at,'revoked_by_username':user.username}
+
+
 @app.get('/projects/{pid}/analysis')
 def analysis(pid:str,sample_type:str|None=None,user:User=Depends(current_user),db:Session=Depends(get_db)):
     ds=dataset.build(db,need_member(db,user,pid))
@@ -324,7 +422,8 @@ def analysis(pid:str,sample_type:str|None=None,user:User=Depends(current_user),d
     rows=[x for x in ds['samples'] if not map_type or x.get('kind')==map_type]
     warnings=[DISCLAIMER,'Trend hutumia aina moja ya sampuli kwa wakati mmoja.','Mwelekeo wa 2D hutumia sampuli huru pekee; assay za downhole hazihamishwi hadi collar bila desurveying.']
     if not ds.get('qa_checks'): warnings.append('Hakuna QA/QC controls zilizowasilishwa; matokeo hayajathibitishwa kwa controls.')
-    return {'samples':rows,'collars':ds['collars'],'trend':tr,'plane':pl,'crs':ds['crs'],'input_hash':ds['input_hash'],'qa_checks':ds.get('qa_checks',[]),'selected_sample_type':map_type,'warnings':warnings}
+    warnings.extend(ds.get('processing_warnings',[]))
+    return {'samples':rows,'collars':ds['collars'],'trend':tr,'plane':pl,'crs':ds['crs'],'input_hash':ds['input_hash'],'qa_checks':ds.get('qa_checks',[]),'processing_counts':ds.get('processing_counts',{}),'selected_sample_type':map_type,'warnings':list(dict.fromkeys(warnings))}
 
 @app.get('/projects/{pid}/report.pdf')
 def pdf(pid:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
@@ -455,10 +554,20 @@ def run_job(job_id):
             ds['_geophysics_electrodes']=params.get('electrodes')
             ds['_geophysics_measurements']=params.get('measurements')
         j.input_hash=ds['input_hash']; j.engine_version=e.version
-        j.warnings_json=json.dumps([DISCLAIMER]+e.warnings)
+        warnings=list(dict.fromkeys([DISCLAIMER]+e.warnings+ds.get('processing_warnings',[])))
+        j.warnings_json=json.dumps(warnings)
         errs=e.validate(ds)+([] if e.adapter_ready else ['Adapter ya engine hii bado haijaandikwa'])+([] if e.library_installed else [f'Maktaba {e.requires} haijasakinishwa'])
         if errs: j.status='rejected'; j.error='; '.join(errs)
-        else: j.result_json=json.dumps(e.run(ds,params),default=str); j.status='done'
+        else:
+            result=e.run(ds,params)
+            if isinstance(result,dict):
+                result.setdefault('input_hash',ds['input_hash'])
+                result['processing_counts']=ds.get('processing_counts',{})
+                result_warnings=result.get('warnings',[])
+                if not isinstance(result_warnings,list):
+                    result_warnings=[str(result_warnings)]
+                result['warnings']=list(dict.fromkeys(result_warnings+warnings))
+            j.result_json=json.dumps(result,default=str); j.status='done'
     except Exception as ex: db.rollback(); j=db.get(Job,job_id); j.status='failed'; j.error=str(ex)[:500]
     j.finished_at=utcnow(); db.commit()
     final_status=j.status

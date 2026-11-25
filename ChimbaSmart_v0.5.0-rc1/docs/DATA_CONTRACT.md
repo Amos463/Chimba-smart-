@@ -1,4 +1,4 @@
-# ChimbaSmart geological data contract v1.2
+# ChimbaSmart geological data contract v1.3
 
 This is the normative cross-client contract, not evidence that every workflow is implemented. Backend and PWA support is partial; the Flutter client has not reached feature or end-to-end parity. See `FLUTTER_MOBILE_STATUS.md` and `FINAL_REPOSITORY_AUDIT.md`.
 
@@ -21,6 +21,9 @@ GemPy needs contacts, orientations, structural groups, faults, extent and strati
 
 ## Quality and provenance
 Preserve lab certificates, methods, units, detection limits, blanks, standards, duplicates and custody events as the laboratory workflow matures. Every result must retain input hash, engine/adapter version, parameters, warnings, logs, validation, uncertainty and reviewer state. Outputs are interpretations, not certified resources.
+
+### Pilot QA/QC and below-detection behavior
+The current pilot defaults are specified in [`SCIENCE_POLICIES.md`](SCIENCE_POLICIES.md) and are initial policies that need geologist review. Raw assay values and detection limits remain unchanged. Grade-based processing may derive DL/2 only when all primary assays are below detection, are in g/t, and share the same detection limit. Conflicting limits or mixed quantified/below-detection results are not silently reduced to one grade. Failed or unresolved controls are scoped to their batch unless the control or sample lacks a batch, in which case handling is conservative and project-wide. An owner/admin waiver is auditable and changes the processing input hash.
 
 
 ## Orientation convention (v0.5)
