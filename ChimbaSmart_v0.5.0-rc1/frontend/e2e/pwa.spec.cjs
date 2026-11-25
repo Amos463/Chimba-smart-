@@ -226,6 +226,8 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
   secondPage.off('response', collectConflictListResponse);
   expect(listedConflicts.status()).toBe(200);
   expect(await listedConflicts.json()).toHaveLength(1);
+  await goHome(secondPage);
+  await expect(secondPage.locator('#home')).toHaveClass(/on/);
   await expect(secondPage.locator('#conflictList .conflict-card')).toBeVisible({ timeout: 30_000 });
   const resolutionResponse = secondPage.waitForResponse(response =>
     response.request().method() === 'POST' &&
