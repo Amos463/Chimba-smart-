@@ -49,7 +49,7 @@ async function goHome(page) {
 
 async function addLaterAssay(page, id, value) {
   await goHome(page);
-  await page.locator('[data-go="mysamples"]').click();
+  await page.locator('#home [data-go="mysamples"]').click();
   await page.locator(`[data-sample="${id}"]`).click();
   await page.locator('#assayValue').fill(String(value));
   await page.locator('#assayLab').fill('Pilot lab');
@@ -98,7 +98,7 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
   await capture(page, 'PWA-03', 2);
   await page.reload();
   await expect(page.locator('#home')).toHaveClass(/on/);
-  await page.locator('[data-go="mysamples"]').click();
+  await page.locator('#home [data-go="mysamples"]').click();
   await expect(page.locator('[data-sample="PWA-02"]')).toBeVisible();
   await expect(page.locator('[data-sample="PWA-03"]')).toBeVisible();
 
@@ -111,7 +111,7 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
   await goHome(page);
   await capture(page, 'PWA-BDL', 3);
   await goHome(page);
-  await page.locator('[data-go="mysamples"]').click();
+  await page.locator('#home [data-go="mysamples"]').click();
   await page.locator('[data-sample="PWA-BDL"]').click();
   await page.locator('#assayValue').fill('0.01');
   await page.locator('#belowDetection').check();
@@ -147,14 +147,14 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
   const expired = expiredToken(originalToken);
   await page.evaluate(token => localStorage.setItem('tok', token), expired);
   await goHome(page);
-  await page.locator('[data-go="mysamples"]').click();
+  await page.locator('#home [data-go="mysamples"]').click();
   await page.locator('#refreshSamples').click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('tok'))).not.toBe(expired);
 
   const secondContext = await browser.newContext();
   const secondPage = await secondContext.newPage();
   await login(secondPage);
-  await secondPage.locator('[data-go="mysamples"]').click();
+  await secondPage.locator('#home [data-go="mysamples"]').click();
   await expect(secondPage.locator('[data-sample="PWA-03"]')).toBeVisible({ timeout: 30_000 });
 
   const conflict = await secondPage.evaluate(async () => {
