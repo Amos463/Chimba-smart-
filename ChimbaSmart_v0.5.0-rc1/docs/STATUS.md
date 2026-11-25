@@ -15,7 +15,7 @@ Status date: 2026-11-25. This describes the current code and verified evidence, 
 | Flutter | PARTIAL | SQLite schema v2, local field-capture form, project/pull/push primitives and GPS helper exist; photos, durable uploads, conflicts and restart/device acceptance remain incomplete. |
 | Backup/restore | PARTIAL | PostgreSQL marker dump/restore passed previously; full project plus photos/application restore not tested. |
 | Android | PARTIAL | Hosted debug APK, testing release APK and AAB built and uploaded in run 45558488726; production signing and real-device acceptance are missing. |
-| CI | PASS | All five root workflows are discovered and have successful hosted runs. Backend audit passes after dependency updates; release publish job was skipped on `main`. |
+| CI | PARTIAL | All five root workflows have successful runs, but only Backend CI and release validation ran on the latest checkpoint. Engine, Android and web/PWA runs are from earlier commits; manual dispatch returned HTTP 403. |
 
 ## Geological processing
 
@@ -38,7 +38,7 @@ Status date: 2026-11-25. This describes the current code and verified evidence, 
 
 Latest recorded current-turn runs:
 
-- Backend hosted integration/PostGIS/Redis suite on 2026-11-25 before the latest auth changes: 34 passed, 3 skipped, 5 warnings; migration, JS syntax and dependency audit steps passed.
+- Backend hosted integration/PostGIS/Redis suite on current checkpoint `4105339a197d9ae89d55f700d5e5ce89a28ce7ad`: 40 passed, 3 skipped, 5 warnings; migration through 0008, JS syntax and dependency audit steps passed.
 - Local backend suite after auth fixes on 2026-11-25: 38 passed, 5 skipped, 1 Starlette deprecation warning. Local `pip-audit -r backend/requirements.txt`: no known vulnerabilities.
 - Backend API-only suite on SQLite: 26 passed, 1 skipped, 1 warning; local Redis service was unavailable.
 - Focused engine suite: 4 passed, 1 warning.
@@ -46,7 +46,7 @@ Latest recorded current-turn runs:
 - Flutter analyze: passed with no issues; Flutter test: passed (one widget smoke test).
 - Fresh SQLite migrations through 0008 and Alembic metadata check: passed. Upgrade from 0007 preserved a user row and initialized `auth_version` to 0.
 - Android Gradle project configuration: passed with Java 17.
-- Workflow YAML syntax: all five workflows parsed. Hosted workflow runs: backend #45560541803, engine #45560541814, Android #45558488726, web #45557089165, release validation #45560541798; all succeeded. The release publish job was skipped on `main`.
+- Workflow YAML syntax: all five workflows parsed. Current checkpoint runs: backend #45564145469 and release validation #45564145487 passed; the release publish job was skipped. Latest successful engine #45560541814, Android #45558488726 and web #45557089165 runs are on prior commits; manual dispatch returned HTTP 403.
 - Docker Compose syntax: passed with disposable test-only secret values.
 - Live PostGIS migration test: 1 passed.
 - Live API login/project/sync push/pull and duplicate push: passed.

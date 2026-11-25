@@ -21,8 +21,10 @@ An earlier checkpoint incorrectly placed workflow files under `ChimbaSmart_v0.5.
 
 ## Latest successful runs
 
-- Backend CI: [45560541803](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541803) — 34 passed, 3 skipped; migration, JavaScript and dependency audit passed.
-- Engine CI: [45560541814](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541814) — synthetic engine checks and isolated image build passed.
-- Android testing build: [45558488726](https://github.com/Amos463/Chimba-smart-/actions/runs/45558488726) — debug APK, testing APK and AAB uploaded; hashes are in `ANDROID_RELEASE_REPORT.md`.
-- Web/PWA build: [45557089165](https://github.com/Amos463/Chimba-smart-/actions/runs/45557089165) — JS syntax, Flutter checks and web artifact passed; browser E2E was not run.
-- Release validation: [45560541798](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541798) — main-branch validation passed; owner release approval and publish steps were skipped.
+- Backend CI: [45564145469](https://github.com/Amos463/Chimba-smart-/actions/runs/45564145469), commit `4105339a197d9ae89d55f700d5e5ce89a28ce7ad` — **40 passed, 3 skipped, 5 warnings**; PostGIS/Redis tests, migration 0008, JavaScript syntax and dependency audit passed.
+- Engine CI: [45560541814](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541814), commit `962e079a76247e5186bb071ca3bbd7935da5f943` — synthetic engine checks and isolated image build passed. No run was created for the latest commit.
+- Android testing build: [45558488726](https://github.com/Amos463/Chimba-smart-/actions/runs/45558488726), commit `b8340717e202a239c8df849d79b046db46abec21` — debug APK, testing APK and AAB uploaded; hashes are in `ANDROID_RELEASE_REPORT.md`. No run was created for the latest commit.
+- Web/PWA build: [45557089165](https://github.com/Amos463/Chimba-smart-/actions/runs/45557089165), commit `99899aa9c2c0184e04b20855b63e7c990a2db62d` — JS syntax, Flutter checks and web artifact passed; browser E2E was not run. No run was created for the latest commit.
+- Release validation: [45564145487](https://github.com/Amos463/Chimba-smart-/actions/runs/45564145487), commit `4105339a197d9ae89d55f700d5e5ce89a28ce7ad` — validation passed; owner release approval and publishing were skipped.
+
+The latest push triggered Backend CI and release validation. Engine, Android and web/PWA use path filters and were not triggered by backend/documentation changes. Manual dispatch was attempted for all three and returned HTTP 403 (`Resource not accessible by integration`); no permission bypass was used.

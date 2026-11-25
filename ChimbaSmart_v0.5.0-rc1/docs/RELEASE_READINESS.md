@@ -6,7 +6,7 @@ Baseline summary incorporates 2026-11-24 evidence; current-turn evidence is appe
 
 | Area | Status | Evidence |
 |---|---|---|
-| Backend/API tests | PASS | Hosted backend integration/PostGIS/Redis suite: 34 passed, 3 skipped, 5 warnings. SQLite migration/metadata, JS syntax and `pip-audit` all passed on run 45560541803. |
+| Backend/API tests | PASS | Current-checkpoint [run 45564145469](https://github.com/Amos463/Chimba-smart-/actions/runs/45564145469): 40 passed, 3 skipped, 5 warnings. PostGIS/Redis integration, SQLite migration through 0008, JS syntax and `pip-audit` passed. |
 | Live PostgreSQL/PostGIS | PASS | Disposable PostGIS 16-3.4 migration test passed |
 | Alembic | PASS | 0001-0008 fresh SQLite upgrade and metadata parity; PostGIS-specific validation predates 0008 |
 | Redis/RQ | PARTIAL | Disposable live queue execution and stopped-worker restart passed; retry policy and isolated engine worker remain incomplete |
@@ -15,10 +15,10 @@ Baseline summary incorporates 2026-11-24 evidence; current-turn evidence is appe
 | Backup/restore | PARTIAL | PostgreSQL project/record/job/audit restore verified in a clean DB and attachment marker restored in a clean volume; complete application restoration remains pending |
 | PWA | PARTIAL | IndexedDB, push/pull, photos and conflict archive; browser smoke test pending |
 | Flutter | PARTIAL | Flutter 3.38.5 analyze and test passed on 2026-11-25; native local schema/API workflows remain incomplete |
-| GitHub Actions | PASS | All five workflows are discovered and have successful runs. The integration token still cannot read Actions settings or dispatch manually; push-triggered execution works. |
+| GitHub Actions | PARTIAL | All five workflows have successful runs; Backend CI and release validation ran on current checkpoint `4105339`. Engine, Android and web/PWA are prior commits; manual dispatch returned HTTP 403. |
 | Heavy engines | PARTIAL | GemPy, LoopStructural and pyGIMLi execute real synthetic tests; PyGSLIB blocked; full production geological validation pending |
 | Android APK/AAB | PARTIAL | Hosted run 45558488726 built and uploaded debug APK, testing APK and AAB; hashes are recorded in `ANDROID_RELEASE_REPORT.md`. Production signing and device acceptance remain outstanding. |
-| Authentication security | PARTIAL | Two confirmed findings were fixed locally; 38 backend tests passed with 5 skipped and 1 warning. Fresh and existing-user migrations passed. Hosted CI for this patch is pending; legacy bcrypt hashes for 72+-byte passwords require secure reset. |
+| Authentication security | PARTIAL | Two confirmed findings were fixed; current-checkpoint Backend CI passed with 40 passed, 3 skipped and 5 warnings. Fresh and existing-user migrations passed locally; legacy bcrypt hashes for 72+-byte passwords require secure reset. |
 | Web build | PASS | Release web build completed under `mobile/build/web/` |
 | iOS | BLOCKED | macOS/Xcode/signing unavailable |
 | Commercial ready | BLOCKED | Security, native field integrations, worker recovery, complete restore and field validation remain incomplete |
@@ -73,7 +73,7 @@ Tanzania field validation is intentionally separate and remains blocked.
 - PyGSLIB is retained in the engine roadmap but remains BLOCKED until importable runtime and component-level license clearance.
 - Python 3.12 source build error: `ModuleNotFoundError: No module named 'numpy.distutils'`.
 - Official Linux CPython 3.8 Conda package import error after legacy GFortran pin: `undefined symbol: H5Pset_fapl_ros3`.
-- CI workflows are discovered. Backend run 45560541803 passed integration/migration/JS checks and reports no known dependency vulnerabilities; engine run 45560541814 passed the synthetic engine and image build; release validation run 45560541798 passed with publishing skipped on `main`.
+- CI workflows are discovered. Current backend run 45564145469 passed integration/migration/JS checks and reports no known dependency vulnerabilities; engine run 45560541814 passed the synthetic engine and image build; current release validation run 45564145487 passed with publishing skipped on `main`.
 - Android run 45558488726 passed and uploaded testing artifacts; release validation run 45560541798 passed with publishing skipped on `main`.
 - Current-turn code/test evidence and requirement matrix: `FINAL_REPOSITORY_AUDIT.md`.
 - Actionable remaining work: `FINAL_IMPLEMENTATION_PLAN.md`.

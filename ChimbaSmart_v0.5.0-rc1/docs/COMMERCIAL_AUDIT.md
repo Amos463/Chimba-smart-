@@ -13,14 +13,14 @@ Audit date: 2026-11-25. This audit reflects the implementation and verification 
 - **PARTIAL:** API-to-Redis-to-RQ persistence and ordinary worker restart were verified. Isolated-worker execution, forced crash recovery and retry behavior remain unverified.
 - **PARTIAL:** Backup evidence is limited to a PostgreSQL marker-row restore; a full PostGIS project with attachments has not been restored and checked.
 - **PARTIAL:** Flutter has SQLite, login/push primitives, GPS helper and a smoke test, but not the required field data capture, durable attachment, conflict, pull, device restart and background synchronization workflows.
-- **RESOLVED LOCALLY:** Security review findings on bcrypt's 72-byte truncation and access-token invalidation were fixed; regression tests and migration 0008 pass locally. Legacy hashes for 72+-byte passwords require secure reset; hosted CI has not yet run on this patch.
+- **RESOLVED:** Security review findings on bcrypt's 72-byte truncation and access-token invalidation were fixed; regression tests and migration 0008 pass locally and Backend CI passes on the pushed checkpoint. Legacy hashes for 72+-byte passwords require secure reset.
 
 ## Medium
 
 - **PARTIAL:** pyGIMLi has a real synthetic ERT forward-model adapter; inversion and recovered-model validation are not implemented.
 - **PARTIAL:** PWA IndexedDB sync and attachment code exists, but browser end-to-end/restart coverage and client parity with the normative contract are incomplete.
 - **PARTIAL:** PostGIS migrations were validated through 0007 in a prior checkpoint; this turn freshly exercised SQLite migrations through 0008 and Alembic metadata parity.
-- **PASS:** All five root GitHub Actions workflows were discovered and completed successfully. Backend integration, migration, JS syntax and dependency audit passed; engine build, Android testing artifact build, web build and main-branch release validation passed. Publish remained skipped.
+- **PARTIAL:** All five root workflows have successful runs. Backend integration/migration/JS syntax/dependency audit and release validation passed on the current checkpoint; latest engine, Android and web/PWA runs are on prior commits because manual dispatch returned HTTP 403. Publish remained skipped.
 
 ## Low
 
