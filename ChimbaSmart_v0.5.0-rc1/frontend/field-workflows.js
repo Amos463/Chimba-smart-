@@ -185,7 +185,9 @@ async function refreshConflicts(){
   target.hidden=!items.length;
   target.innerHTML=items.map(item=>{
     const conflict=item.conflict;
-    const payload=JSON.parse(conflict.incoming_json||'{}');
+    const payload=typeof conflict.incoming_json==='string'
+      ? JSON.parse(conflict.incoming_json||'{}')
+      : conflict.incoming_json||{};
     const sampleId=payload.sample_id||conflict.record_uuid;
     return `<article class="conflict-card"><b>${esc(sampleId)}</b><p>Rekodi ya kifaa inakinzana na seva. Hifadhi toleo la seva au kataa mabadiliko yanayosubiri.</p><button class="btn o" data-resolve="${conflict.id}" data-resolution="keep_server">Hifadhi la seva</button><button class="btn o" data-resolve="${conflict.id}" data-resolution="rejected">Kataa toleo la kifaa</button></article>`;
   }).join('');
