@@ -173,6 +173,7 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
 
   const secondContext = await browser.newContext();
   const secondPage = await secondContext.newPage();
+  acceptancePage = secondPage;
   await login(secondPage);
   await secondPage.locator('#home [data-go="mysamples"]').click();
   await expect(secondPage.locator('[data-sample="PWA-03"]')).toBeVisible({ timeout: 30_000 });
@@ -203,13 +204,24 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
   });
   expect(conflict.status).toBe('conflict');
   await goHome(secondPage);
+  await expect(secondPage.locator('#home')).toBeVisible();
   const projectId = await secondPage.evaluate(() => localStorage.getItem('pid'));
+  const conflictListResponses = [];
+  const collectConflictListResponse = response => {
+    if (response.request().method() === 'GET' &&
+        new URL(response.url()).pathname === `/projects/${projectId}/conflicts`) {
+      conflictListResponses.push(response);
+    }
+  };
+  secondPage.on('response', collectConflictListResponse);
   const conflictListResponse = secondPage.waitForResponse(response =>
     response.request().method() === 'GET' &&
     new URL(response.url()).pathname === `/projects/${projectId}/conflicts`,
   );
   await secondPage.locator('#retrySync').click();
   const listedConflicts = await conflictListResponse;
+  await expect.poll(() => conflictListResponses.length, { timeout: 10_000 }).toBeGreaterThanOrEqual(2);
+  secondPage.off('response', collectConflictListResponse);
   expect(listedConflicts.status()).toBe(200);
   expect(await listedConflicts.json()).toHaveLength(1);
   await expect(secondPage.locator('#conflictList .conflict-card')).toBeVisible({ timeout: 30_000 });
