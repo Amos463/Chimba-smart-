@@ -2,7 +2,7 @@
 
 **Decision: choose option B — package the tested PWA in a Capacitor Android shell.**
 
-The decision is based on the current repository evidence, not on a claim that the PWA has already passed browser acceptance. The PWA remains the primary field client until its offline, synchronization, conflict, and report flows pass the hosted Playwright scenario. The existing Flutter client remains PARTIAL and must not be presented as a pilot-ready alternative.
+The hosted Playwright field scenario passed in [Backend CI run 45648096883](https://github.com/Amos463/Chimba-smart-/actions/runs/45648096883), and the web/PWA checks passed in [run 45648096960](https://github.com/Amos463/Chimba-smart-/actions/runs/45648096960). The PWA remains the primary field client; interrupted attachment uploads, restore behavior, and real-device operation are still unverified. The existing Flutter client remains PARTIAL and must not be presented as a pilot-ready alternative.
 
 ## Options
 
