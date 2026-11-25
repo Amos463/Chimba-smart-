@@ -115,7 +115,7 @@ jobs:
       - name: Dependency vulnerability audit
         run: pip-audit -r ChimbaSmart_v0.5.0-rc1/backend/requirements.txt
   pwa-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       DATABASE_URL: sqlite:////tmp/chimbasmart-pwa-e2e.db
       ATTACHMENTS_DIR: /tmp/chimbasmart-pwa-e2e-attachments
