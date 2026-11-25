@@ -9,3 +9,11 @@ __pycache__/
 *.pyc
 *.db
 .env
+**/backend/data/
+**/build/
+**/.dart_tool/
+**/.gradle/
+*.apk
+*.aab
+*.keystore
+*.jks

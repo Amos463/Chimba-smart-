@@ -1,6 +1,12 @@
 # ChimbaSmart repository status
 
-Status date: 2026-11-25. This describes the current code and verified evidence, not the historical v0.4/v0.5 handoff.
+Status date: 2026-11-25. Pilot work is in progress on `market-pilot`; only results linked to commands or hosted runs below are treated as verified.
+
+## Market-pilot phase log
+
+| Phase | Status | Files/work | Evidence / remaining risk |
+|---|---|---|---|
+| 0 — cleanup and baseline | PARTIAL | Moved `.devcontainer` to repository root and made it Python-only; untracked backend attachments without deleting local files; ignored runtime data/build outputs; isolated test attachments in a temporary directory; pinned NumPy/PyProj/WeasyPrint; added quickstart and owner license action; fixed Compose runtime Redis URL expansion. | Local `pytest -q`: 38 passed, 5 skipped, 1 warning. Fresh SQLite Alembic upgrade through 0008 and `alembic check`: passed. Compose config: passed. Hosted CI for this branch commit is pending. Local Node.js syntax checks: NOT RUN (Node.js unavailable). Last `df -h /workspaces`: `/dev/loop4 32G 24G 5.8G 81%`. |
 
 ## Components and current state
 

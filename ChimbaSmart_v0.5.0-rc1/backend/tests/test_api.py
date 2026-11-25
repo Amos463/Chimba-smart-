@@ -162,12 +162,16 @@ def test_assay_qaqc_roles(ctx,client):
 def test_attachment_success_and_duplicate_is_idempotent(ctx,client):
     from PIL import Image
     import io
+    from pathlib import Path
     h,p=ctx
     s=rec(p,'sample',{'sample_id':'PHOTO-OK','sample_type':'rock_chip','lat':-3.1,'lon':32.2})
     assert st(push(client,h,s))==['accepted']
     b=io.BytesIO(); Image.new('RGB',(2,2),(255,0,0)).save(b,format='PNG'); payload=b.getvalue()
+    attachment_dir=Path(os.environ['ATTACHMENTS_DIR'])
+    before=set(attachment_dir.iterdir()) if attachment_dir.exists() else set()
     args={'data':{'project_id':p,'sample_id':'PHOTO-OK','sample_record_uuid':s['record_uuid']},'files':{'file':('sample.png',payload,'image/png')},'headers':h}
     first=client.post('/attachments',**args); assert first.status_code==201
+    assert set(attachment_dir.iterdir())-before
     second=client.post('/attachments',**args); assert second.status_code==201 and second.json().get('duplicate') is True
 
 

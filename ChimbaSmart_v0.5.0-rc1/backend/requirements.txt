@@ -6,9 +6,9 @@ alembic==1.15.2
 pydantic==2.11.4
 PyJWT==2.15.1
 bcrypt==4.3.0
-numpy
-pyproj
-weasyprint
+numpy==2.5.5
+pyproj==3.8.0
+weasyprint==70.0
 pytest==9.0.3
 httpx==0.28.1
 

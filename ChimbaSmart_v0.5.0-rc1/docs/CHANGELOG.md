@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-25 — Market pilot Phase 0
+
+- Moved the Python-only devcontainer to the repository root, ignored generated/runtime files and untracked committed backend attachment copies while preserving local files.
+- Routed test uploads into an automatically cleaned temporary directory; pinned NumPy, PyProj and WeasyPrint to versions resolved in hosted CI.
+- Added local SQLite/API and Compose quickstarts; project license selection remains owner-controlled.
+- Fixed Compose escaping so the engine worker expands `REDIS_URL` inside its container.
+
 ## 2026-11-25 — Authentication hardening
 
 - Addressed two confirmed authentication findings: bcrypt now hashes the full password through SHA-256 before bcrypt, and access tokens are bound to refresh sessions and invalidated on logout/password reset.
