@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
           cache: gradle
           cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android/**/*.gradle*
       - uses: actions/setup-node@v4
