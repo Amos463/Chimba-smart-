@@ -2,6 +2,8 @@ name: Approved commercial release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -68,6 +70,7 @@ jobs:
           flutter analyze
           flutter test
       - name: Confirm owner release gates
+        if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish_release == true
         env:
           RELEASE_GATES_APPROVED: ${{ vars.COMMERCIAL_RELEASE_GATES_PASSED }}
         run: |
@@ -78,7 +81,7 @@ jobs:
 
   build-and-publish:
     needs: gates
-    if: github.event_name == 'push' || inputs.publish_release == true
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish_release == true
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -91,7 +94,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: "3.38.5"

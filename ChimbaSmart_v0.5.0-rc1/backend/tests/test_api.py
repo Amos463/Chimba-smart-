@@ -257,7 +257,7 @@ def test_configurable_project_role_permissions(ctx,client):
 @pytest.mark.skipif(not os.getenv('REDIS_URL'),reason='REDIS_URL haijawekwa')
 def test_redis_rate_limit_is_available(client):
     import redis
-    r=redis.Redis(host='127.0.0.1',port=56379,decode_responses=True)
+    r=redis.Redis.from_url(os.environ['REDIS_URL'],decode_responses=True)
     r.ping()
     r.incr('test:rate-limit')
 
