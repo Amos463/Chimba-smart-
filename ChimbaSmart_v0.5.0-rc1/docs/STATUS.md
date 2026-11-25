@@ -1,65 +1,58 @@
-# Hali halisi — ChimbaSmart v0.4-pre1 (handoff ya Codespaces)
+# ChimbaSmart repository status
 
-**Toleo hili ni patch ya kabla ya runtime verification, si commercial release.** ZIP imefanyiwa ukaguzi wa syntax tu katika mazingira haya. Backend tests, migration ya PostGIS, upload ya picha, PWA runtime na engine outputs lazima vithibitishwe Codespaces.
+Status date: 2026-11-25. This describes the current code and verified evidence, not the historical v0.4/v0.5 handoff.
 
-## Mabadiliko yaliyoandaliwa
-1. **Data model:** sampuli huru (`sample`) zimetenganishwa na drillhole collar; assay (`assay`) ni rekodi tofauti na inaweza kuongezwa baadaye kwa sample iliyopo. Assay za downhole zinabaki interval; hazichukuliwi kuwa eneo la collar.
-2. **Trend 2D:** inatumia surface samples zenye assay g/t pekee. Dataset ina collars, surveys, intervals, orientations, samples na assays kando, pamoja na `input_hash`.
-3. **Offline queue:** IndexedDB queue ya simu, pending photos, sync push + pull cursor, na rejected/conflict archive yenye maelezo. Rekodi zenye dependency inayosubiri hubaki retryable; permanent invalid/conflict haziangamizwe kimyakimya. Pull inaendelea kutoka cursor iliyohifadhiwa.
-4. **Offline map:** PWA inahifadhi analysis ya mwisho na ina coordinate plot ya sampuli inayofanya kazi bila tile server; sampuli mpya za ndani zinaongezwa kwenye plot. Hii si downloadable offline basemap/tile package.
-5. **Picha:** picha JPEG/PNG/WEBP hadi MB 10 huhifadhiwa IndexedDB ikiwa offline, kisha hutumwa `/attachments`; API ina project authorization, MIME allowlist, SHA-256, na metadata. Docker Compose ina persistent volume. Picha zinahusishwa na sample_id.
-6. **Engine registry:** `trend2d`, `orientation`, `idw`, `downhole_composite` zina adapters; `pykrige` adapter imeandikwa na dependency imeongezwa. `gempy`, `loopstructural`, `pygslib`, `pygimli` zimetajwa wazi kuwa hazijakamilika na haziwezi kuendeshwa.
-7. **Provenance:** IDW/PyKrige results zinajumuisha input hash, CRS, method na parameters. Job model bado ni `BackgroundTasks`; si durable queue ya production.
+## Components and current state
 
-## Bado lazima kuthibitishwa/kujengwa
-- Tests hazijaendeshwa hapa kwa sababu mazingira hayana `bcrypt` (na huenda dependencies nyingine); `pip install -r backend/requirements.txt` kisha `pytest` Codespaces.
-- Alembic migration `0003_samples_assays` na PostGIS generated geometry/GIST index haijaendeshwa.
-- PyKrige inahitaji install + runtime tests, variogram diagnostics na geologist review.
-- GemPy, LoopStructural, PyGSLIB na pyGIMLi bado hazina working adapters.
-- PWA offline coordinate plot si offline topo/geology basemap. Map tile packages, Bluetooth instrument import, richer sample photo gallery/download, and sync conflict resolution workflow bado vinahitaji kazi.
-- `sync/pull` inahifadhi server records kwenye IndexedDB lakini hakuna merge UI ya ku-edit incoming conflicts.
-- Token revocation/refresh, distributed rate limiting, durable job queue (RQ/Celery), malware scan, formal audit log, backups/restore, storage retention policy na security review bado vinahitajika.
-- Flutter client bado ni skeleton; PWA ndiyo client inayoweza kutumika sasa kupitia browser/installable PWA. iOS native/App Store build inahitaji macOS/Xcode.
-- CRS/vertical datum, survey methodology, sampling protocols, QA/QC (blanks, standards, duplicates, custody), uncertainty and geological interpretation lazima zikaguliwe na wataalamu. Hakuna output inayothibitisha mineral resource.
+| Area | Status | Evidence / gap |
+|---|---|---|
+| FastAPI backend | PARTIAL | Auth, project roles, sample/assay/drillhole records, sync, conflicts, attachments, reports and engine jobs exist; production-scale API E2E is incomplete. |
+| PostgreSQL/PostGIS | PARTIAL | Migrations through 0007 and spatial columns/indexes exist; previous disposable migration passed; rerun required in current CI. |
+| SQLite | PASS | Local/development and API test path works. |
+| Redis/RQ | PARTIAL | Rate limiting, core worker and isolated engine queue/container are configured; crash/retry/recovery are not proven. |
+| PWA | PARTIAL | IndexedDB queue, push/pull, attachment and conflict storage exist; browser interruption/restart and multi-device E2E have not run. |
+| Flutter | PARTIAL | Local SQLite table, login/push primitives and GPS helper exist; full domain repository, attachment, pull/conflict and field workflows are absent. |
+| Backup/restore | PARTIAL | PostgreSQL marker dump/restore passed previously; full project plus photos/application restore not tested. |
+| Android | PARTIAL | APK/AAB previously built locally with debug signing; production signing and real-device acceptance are missing. |
+| CI | NOT RUN | GitHub-hosted workflow definitions are being added; no workflow run is evidence yet. |
 
-## Amri ya kwanza Codespaces
-Tumia `scripts/codespaces_verify.sh` iliyo ndani ya ZIP. Itasakinisha requirements, kuendesha compile/test, kujaribu Docker Compose config, Alembic upgrade kwenye SQLite ya majaribio, na kuonyesha engine registry. Isipofaulu, rekebisha kabla ya kuendelea.
+## Geological processing
 
+| Engine | Status | Runtime scope |
+|---|---|---|
+| Trend 2D | PASS | Existing synthetic/backend tests; surface samples only. |
+| Orientation | PASS | Existing synthetic/backend tests; phone measurements remain lower confidence. |
+| IDW | PASS | Existing grid test; exploratory interpolation only. |
+| Downhole composite | PASS | Length-weighted intervals; no desurvey/domain estimation. |
+| PyKrige 1.7.3 | PASS | Ordinary Kriging synthetic adapter test. |
+| GemPy 2026.0.3 | PASS | Explicit-contact implicit model synthetic execution. |
+| LoopStructural 1.12.0 | PASS | Claudius synthetic foliation evaluation. |
+| pyGIMLi 1.6.1 | PARTIAL | ERT forward modeling passed; inversion not implemented/validated. |
+| PyGSLIB | BLOCKED | Official Linux Conda build is Python 3.8-era and import fails against currently resolved VTK/HDF5/GFortran stack; official source build fails on Python 3.12 due `numpy.distutils` removal. License review is unresolved. |
+| PyProj/PROJ | PARTIAL | PyProj installed and used by CRS transformations; full CRS/data-contract validation incomplete. |
+| GDAL | NOT RUN | Not installed/integrated. |
+| QGIS | NOT RUN | No QGIS processing service; PostGIS remains the server spatial datastore. |
 
-## v0.5 engineering hardening
-- Initial schema is explicit Alembic DDL; `0003` only adds sample PostGIS geometry; `0004` adds assay QA/QC metadata.
-- Assay roles: primary, blank, standard, duplicate. Blank/standard/duplicate checks are advisory QA flags; they do not certify a laboratory batch.
-- Trend: one sample type per run, log1p grade transform, deterministic RANSAC + Huber refinement; reports outlier count and selected sample type.
-- Multiple differing primary assays are not silently resolved; the sample is excluded from grade trend until reviewed.
-- Plot uses projected coordinates with equal aspect, north arrow and approximate scale; it is not a basemap/GIS license-boundary viewer.
-- Offline JWT is retained after 401 so local data is not discarded; access token default is 30 days. Production should add refresh/revocation and Redis-backed rate limiting.
+## Tests
 
+Latest recorded current-turn runs:
 
-## v0.5.0-rc1 engineering changes
-- Explicit immutable Alembic baseline plus migrations through 0006; fresh SQLite migration and `alembic check` verified in this workspace.
-- Trend/IDW/Kriging use a single sample type per run; ambiguous equal-count types require explicit selection. QA/QC fail or unresolved controls block grade-dependent engines.
-- Assay roles, below-detection qualifier, multiple-assay conflict handling, robust trend, RHR labels, projected map scale discipline, IP+username throttling, offline queue ownership, and server image sanitization are included.
-- Remaining external verification: full pytest suite in Codespaces (bcrypt unavailable in this build workspace), live PostgreSQL/PostGIS migration test, real browser IndexedDB/photo upload test, PyKrige runtime test if optional dependency installed, and Flutter remains a skeleton.
+- Backend suite with disposable Redis: 35 passed, 1 skipped, 1 third-party deprecation warning.
+- Focused engine suite: 4 passed, 1 warning.
+- Python compileall: passed.
+- Flutter analyze: passed with no issues; Flutter test: passed (one widget smoke test).
+- Fresh SQLite migrations through 0007 and Alembic metadata check: passed.
+- Android Gradle project configuration: passed with Java 17.
+- Workflow YAML syntax: all five workflows parsed; GitHub Actions: NOT RUN.
+- Docker Compose syntax: passed with disposable test-only secret values.
+- JavaScript syntax: NOT RUN locally; Node.js is unavailable.
+- Browser PWA E2E: NOT RUN.
+- Live Redis suite: passed with disposable Redis. PostGIS after latest engine changes: NOT RUN.
+- Worker restart/crash/retry: NOT RUN.
+- Full backup/restore with attachments: NOT RUN.
 
-## Commercial hardening baseline (2026-11-24)
+## Commercial release decision
 
-- Verified 29 backend tests pass and 1 PostgreSQL/PostGIS test is skipped in the local environment.
-- Verified migration chain 0001-0007 upgrades on SQLite and `alembic check` reports no model drift.
-- Resolved the PyKrige requirement conflict using `PyKrige==1.7.3`.
-- Added refresh-session hashes, rotation/reuse revocation, password-reset tokens, audit events and UTC-normalization fixes.
-- Added request size, CORS, security-header and readiness middleware.
-- Remaining critical production work: Redis-backed throttling, durable RQ/Celery jobs, complete role matrix, live PostgreSQL/PostGIS testing, backup/restore proof, conflict resolution UI and production cross-platform builds.
+**BLOCKED.** The current repository is an engineering RC, not a market-ready product. Read `RELEASE_READINESS.md`, `FINAL_REPOSITORY_AUDIT.md`, `FINAL_IMPLEMENTATION_PLAN.md`, and `OWNER_ACTIONS.md`.
 
-## Release continuation (2026-11-24)
-
-- PASS: live PostgreSQL/PostGIS migration test on disposable PostGIS 16-3.4.
-- PASS: disposable PostgreSQL backup and restore marker verification.
-- PASS: Redis-backed throttling dependency, RQ worker and Docker Compose worker service.
-- PASS: configurable project permissions for owner, manager, geologist, technician, reviewer and read-only roles.
-- PASS: server conflict listing and keep-server/replace/reject resolution API.
-- PASS: PWA IndexedDB conflict archive and pull cursor schema upgrade.
-- PARTIAL: PWA conflict resolution controls require browser end-to-end verification.
-- PARTIAL: Flutter remains a SQLite skeleton; native modules and production sync are incomplete.
-- BLOCKED: Flutter SDK unavailable.
-- BLOCKED: GemPy, LoopStructural, PyGSLIB and pyGIMLi libraries unavailable.
-- BLOCKED: iOS requires macOS/Xcode and owner signing credentials.
+Geological outputs are exploratory; qualified professionals must review inputs, assumptions and interpretations. No resource/reserve certification is claimed.

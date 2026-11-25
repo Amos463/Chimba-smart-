@@ -1,25 +1,26 @@
 # Release readiness
 
-Baseline date: 2026-11-24.
+Baseline summary incorporates 2026-11-24 evidence; current-turn evidence is appended below.
 
 ## Gate summary
 
 | Area | Status | Evidence |
 |---|---|---|
-| Backend/API tests | PASS | 32 passed, 1 PostGIS skipped in default suite |
+| Backend/API tests | PASS | Latest full suite with disposable Redis: 35 passed, 1 skipped, 1 warning |
 | Live PostgreSQL/PostGIS | PASS | Disposable PostGIS 16-3.4 migration test passed |
 | Alembic | PASS | 0001-0007 SQLite upgrade and metadata parity |
 | Redis/RQ | PARTIAL | Dependencies, worker service and Redis connectivity implemented; worker crash/retry end-to-end test pending |
 | RBAC | PASS | Six configurable role names plus legacy/owner roles |
 | Conflict resolution | PASS | Server API list and resolution tested |
-| Backup/restore | PASS | Disposable PostgreSQL dump/restore marker verified |
+| Backup/restore | PARTIAL | Disposable PostgreSQL marker dump/restore verified; full project and attachment restore NOT RUN |
 | PWA | PARTIAL | IndexedDB, push/pull, photos and conflict archive; browser smoke test pending |
-| Flutter | PARTIAL | Flutter 3.38.5 analyzes and tests successfully; native local schema/API workflows remain incomplete |
+| Flutter | PARTIAL | Flutter 3.38.5 analyze and test passed on 2026-11-25; native local schema/API workflows remain incomplete |
+| GitHub Actions | PARTIAL | Five hosted-runner workflows added and YAML-parsed; not run on GitHub |
 | Heavy engines | PARTIAL | GemPy, LoopStructural and pyGIMLi execute real synthetic tests; PyGSLIB blocked; full production geological validation pending |
 | Android APK/AAB | PARTIAL | Release APK/AAB built successfully; artifacts use the Android debug certificate until production signing is configured |
 | Web build | PASS | Release web build completed under `mobile/build/web/` |
 | iOS | BLOCKED | macOS/Xcode/signing unavailable |
-| Commercial ready | FAIL | Security and native field integrations are incomplete |
+| Commercial ready | BLOCKED | Security, native field integrations, worker recovery, complete restore and field validation remain incomplete |
 
 ## Engine matrix
 
@@ -30,7 +31,7 @@ Baseline date: 2026-11-24.
 - pykrige: adapter ready and library installed; runtime tested.
 - gempy: adapter ready for explicit-contact 3D models; GemPy 2026.0.3 runtime tested.
 - loopstructural: adapter ready for implicit foliation; LoopStructural 1.12.0 runtime tested on Claudius data.
-- pygslib: blocked; no installable PyPI/source distribution established.
+- pygslib: BLOCKED; official OpenGeoStat Conda/source found, but current Linux binary and Python 3.12 source build failed runtime/build validation. See `SERVER_ENGINE_DEPLOYMENT_REPORT.md`.
 - pygimli: adapter ready for ERT forward modelling; pyGIMLi 1.6.1 runtime tested. Inversion remains pending.
 
 ## Independent final audit 2026-11-24
@@ -49,7 +50,10 @@ Exact verification:
 - GemPy: real 2026.0.3 implicit model compute passed.
 - LoopStructural: real Claudius synthetic model returned finite values.
 - pyGIMLi: real synthetic ERT forward model returned 3 positive values.
-- PyGSLIB: blocked because no package/source distribution is available.
+- PyGSLIB: official GitHub source and OpenGeoStat Conda distribution identified; neither produced a usable runtime in tested configurations.
+- PyGSLIB official source build (Python 3.12): blocked at `numpy.distutils` import.
+- PyGSLIB official Linux Conda binary (Python 3.8): blocked at VTK/netCDF ABI after legacy GFortran runtime pin.
+- GitHub Actions workflow definitions: present, but NOT RUN until pushed and executed on GitHub.
 - Disposable PostgreSQL dump/restore: passed for a marker row.
 - Flutter analyze: passed with no issues.
 - Flutter test: passed.
@@ -61,6 +65,16 @@ Exact verification:
 - Flutter, PWA browser restart, RQ worker crash/recovery and heavy optional engines remain PARTIAL or BLOCKED.
 
 Tanzania field validation is intentionally separate and remains blocked.
+
+## Current PyGSLIB and repository audit 2026-11-25
+
+- Official OpenGeoStat source and Conda distribution were identified.
+- PyGSLIB is retained in the engine roadmap but remains BLOCKED until importable runtime and component-level license clearance.
+- Python 3.12 source build error: `ModuleNotFoundError: No module named 'numpy.distutils'`.
+- Official Linux CPython 3.8 Conda package import error after legacy GFortran pin: `undefined symbol: H5Pset_fapl_ros3`.
+- CI workflow files have been added but are NOT RUN until pushed and executed on GitHub Actions.
+- Current-turn code/test evidence and requirement matrix: `FINAL_REPOSITORY_AUDIT.md`.
+- Actionable remaining work: `FINAL_IMPLEMENTATION_PLAN.md`.
 
 ## Artifact verification
 

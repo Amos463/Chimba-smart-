@@ -18,6 +18,7 @@ This is an engineering dependency inventory, not legal advice. Commercial distri
 | pyproj | 3.8.0 | MIT metadata | Preserve MIT notice; PROJ native component may have separate notices |
 | NumPy | 2.5.5 | BSD family upstream metadata | Preserve BSD notices |
 | SciPy | 1.18.1 | BSD-3-Clause with SciPy copyright text | Preserve upstream license and notices |
+| PyGSLIB source | upstream source `0.0.0.7.1.1` / official Linux Conda `0.0.0.6.0.0` | Mixed: root MIT license, `setup.py` declares `GPL and MIT`; GPL-3 Cython and GPL-2 KT3D/KPROP source plus Stanford/GSLIB notices | Do not commercially integrate or redistribute until per-file provenance, applicable license texts and counsel clearance are completed |
 
 ## Core direct dependencies
 
@@ -46,7 +47,7 @@ This is an engineering dependency inventory, not legal advice. Commercial distri
 1. GemPy and gempy-engine use EUPL-1.2. Legal review is required for commercial SaaS, binary and redistribution models.
 2. PostGIS/QGIS GPL components may impose source obligations when distributed or combined as a non-GPL product distribution.
 3. WeasyPrint and native PDF dependencies require transitive OS/package notice review.
-4. PyGSLIB is blocked until a license and source package are established.
+4. PyGSLIB has an official source and Conda distribution, but file-level license scope is mixed and the Linux binary is not currently importable with a reproducible supported native stack. It remains blocked.
 
 ## Required next actions
 

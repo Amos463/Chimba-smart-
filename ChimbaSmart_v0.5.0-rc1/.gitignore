@@ -2,9 +2,13 @@
 .venv/
 __pycache__/
 .pytest_cache/
+**/__pycache__/
+**/.pytest_cache/
+**/.gradle/
 *.db
 .dart_tool/
 .flutter-plugins*
 build/
+backend/data/attachments/
 .DS_Store
 *.zip

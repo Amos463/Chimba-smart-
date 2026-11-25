@@ -303,7 +303,7 @@ class PyGIMLiERT(Engine):
         }
 
 class UnavailableAdapter(Engine):
-    def __init__(self,name,requires,reason): self.name=name; self.requires=requires; self.reason=reason; self.warnings=[reason]
+    def __init__(self,name,requires,reason,version='0'): self.name=name; self.requires=requires; self.reason=reason; self.version=version; self.warnings=[reason]
     def validate(self,ds): return [self.reason]
 
-ENGINES={e.name:e for e in (Trend2D(),OrientationMean(),IDW(),DownholeComposite(),PyKrige(),GemPyModel(),LoopStructuralModel(),UnavailableAdapter('pygslib','pygslib','No PyPI package is available; integration requires a separately licensed/source-provided distribution and container.'),PyGIMLiERT())}
+ENGINES={e.name:e for e in (Trend2D(),OrientationMean(),IDW(),DownholeComposite(),PyKrige(),GemPyModel(),LoopStructuralModel(),UnavailableAdapter('pygslib','pygslib','Official OpenGeoStat Conda package is Python 3.8-era and its Linux native runtime failed import validation; source build is incompatible with Python 3.12. See docs/SERVER_ENGINE_DEPLOYMENT_REPORT.md.','0.0.0.7.1.1'),PyGIMLiERT())}

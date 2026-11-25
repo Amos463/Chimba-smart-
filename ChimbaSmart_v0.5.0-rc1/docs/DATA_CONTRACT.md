@@ -1,5 +1,7 @@
 # ChimbaSmart geological data contract v1.2
 
+This is the normative cross-client contract, not evidence that every workflow is implemented. Backend and PWA support is partial; the Flutter client has not reached feature or end-to-end parity. See `FLUTTER_MOBILE_STATUS.md` and `FINAL_REPOSITORY_AUDIT.md`.
+
 ## Shared envelope
 Every sync record has UUIDv4, project UUID, record type, payload, UTC timestamps, device ID, source method, optional CRS and client hash. Server recomputes canonical SHA-256.
 

@@ -8,4 +8,4 @@ COPY backend/app ./app
 COPY backend/migrations ./migrations
 COPY backend/alembic.ini .
 COPY frontend ./frontend
-CMD ["rq","worker","chimbasmart-engines","--url","${REDIS_URL}"]
+CMD ["sh","-c","rq worker chimbasmart-engines --url \"$REDIS_URL\""]

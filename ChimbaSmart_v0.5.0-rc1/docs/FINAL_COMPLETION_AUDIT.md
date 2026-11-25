@@ -1,4 +1,6 @@
- # Final completion audit
+# Final completion audit
+
+Historical independent audit snapshot dated 2026-11-24. The 2026-11-25 repository audit, which includes PyGSLIB source investigation and current CI/workflow status, is in `FINAL_REPOSITORY_AUDIT.md`.
 
 ## Overall result
 

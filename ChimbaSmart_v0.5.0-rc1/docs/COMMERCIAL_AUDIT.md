@@ -1,44 +1,36 @@
 # Commercial audit
 
-Audit baseline: repository commit `2f6fd9c`, 2026-11-24.
-
-## Verification summary
-
-- 27 backend tests pass; 1 PostGIS test is skipped when PostgreSQL is unavailable.
-- Fresh SQLite migration chain 0001-0007 passes; `alembic check` reports no new upgrade operations.
-- Python bytecode compilation passes.
-- JavaScript syntax checks pass.
-- Flutter toolchain is unavailable in this Codespaces environment.
-- PyKrige requirement conflict is resolved at `PyKrige==1.7.3`.
-- The baseline Codespaces script can select the repository virtual environment instead of the host Python 3.14 interpreter.
+Audit date: 2026-11-25. This audit reflects the implementation and verification documented in `FINAL_REPOSITORY_AUDIT.md`; it is not a certification.
 
 ## Critical
 
-- Production authorization has no durable Redis-backed throttling or queueing.
-- FastAPI `BackgroundTasks` is process-local and does not survive worker or application restarts.
-- Refresh/logout sessions and password reset workflows are now modelled, but delivery, Redis reuse controls and account-management UI are not complete.
-- Live PostgreSQL/PostGIS migration and backup/restore validation has not been executed here.
-- Cross-platform production builds cannot be verified without their native toolchains.
+- **BLOCKED:** ChimbaSmart is not commercially ready. Flutter is a foundation, not a complete field app; PWA browser restart/offline acceptance, worker crash/retry recovery, complete project-and-attachment restoration, production signing, and field-pilot evidence are missing.
+- **BLOCKED:** Commercial distribution/service licensing requires owner and counsel review of GemPy EUPL-1.2, GPL components and transitive dependencies. PyGSLIB's mixed MIT/GPL source needs file-level analysis.
 
 ## High
 
-- Project roles are only owner/member/administrator; the requested six configurable roles are not fully implemented server-side.
-- Sync creates conflicts but has no server-approved conflict resolution endpoint.
-- No record update payload is implemented for existing non-attachment entities.
-- Attachment storage is local filesystem only; object-storage compatibility is not implemented.
-- CORS is configurable, but production origins must be explicitly set.
-- Password reset delivery is intentionally not wired to email/SMS.
+- **BLOCKED:** PyGSLIB has no verified usable runtime in this environment. Python 3.12 source build fails on missing `numpy.distutils`; the official Linux CPython 3.8 Conda package fails importing with `undefined symbol: H5Pset_fapl_ros3` after pinning its legacy GFortran runtime.
+- **PARTIAL:** Redis/RQ routing and isolated engine worker configuration exist, but API-to-worker-to-persisted-result execution and worker/Redis recovery are not verified end-to-end.
+- **PARTIAL:** Backup evidence is limited to a PostgreSQL marker-row restore; a full PostGIS project with attachments has not been restored and checked.
+- **PARTIAL:** Flutter has SQLite, login/push primitives, GPS helper and a smoke test, but not the required field data capture, durable attachment, conflict, pull, device restart and background synchronization workflows.
 
 ## Medium
 
-- The PWA and Flutter clients are offline-first foundations, not complete field applications.
-- Flutter uses SQLite but is only a local skeleton.
-- Offline basemaps, Bluetooth instruments and 3D visualization are not implemented.
-- PostGIS geometry is limited to generated WGS84 point columns; projected CRS transformations are advisory/processing scope.
-- No Redis worker metrics or worker health endpoint exists.
+- **PARTIAL:** pyGIMLi has a real synthetic ERT forward-model adapter; inversion and recovered-model validation are not implemented.
+- **PARTIAL:** PWA IndexedDB sync and attachment code exists, but browser end-to-end/restart coverage and client parity with the normative contract are incomplete.
+- **PARTIAL:** PostGIS migration was validated in a prior checkpoint; this audit turn freshly exercised SQLite migrations 0001-0007 and Alembic metadata parity only.
+- **NOT RUN:** GitHub-hosted CI/release workflows were added and YAML-parsed, but have not run on GitHub Actions.
 
 ## Low
 
-- Several docs and changelogs still contain pre-release wording.
-- The API is mostly flat rather than versioned under `/api/v1`.
-- There is no formal OpenAPI/exported version policy.
+- **PARTIAL:** `scripts/codespaces_verify.sh` now uses the selected Python interpreter and a disposable SQLite database, but local verification stops at JavaScript syntax checks because Node.js is unavailable in this environment.
+- **PARTIAL:** QGIS/GDAL are not integrated processing services; PostGIS and PyProj are available.
+
+## Verified local evidence
+
+- Backend suite with disposable Redis: **35 passed, 1 skipped, 1 warning**.
+- Optional engine tests: **4 passed, 1 warning**.
+- Python compileall, Flutter analyze/test, Android Gradle configuration with Java 17, Docker Compose validation, all workflow YAML parsing, fresh SQLite migration and `alembic check`: **PASS**.
+- PyKrige, GemPy, LoopStructural and pyGIMLi synthetic engine tests pass; these do not constitute geological or resource certification.
+
+See `FINAL_REPOSITORY_AUDIT.md`, `RELEASE_READINESS.md` and `OWNER_ACTIONS.md` for test scope and remaining actions.

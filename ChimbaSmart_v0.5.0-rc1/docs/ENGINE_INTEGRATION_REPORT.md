@@ -32,11 +32,15 @@
 - Three synthetic measurements were reproduced positively.
 - Inversion is not yet claimed: only real forward modelling is implemented.
 
-### PyGSLIB
+### PyGSLIB — investigation and blocker
 
-- Not implemented. No `pygslib` distribution is available on PyPI.
-- The registry truthfully reports the dependency as unavailable.
-- A source-distributed package, license review and isolated container are owner dependencies before implementation.
+- Official upstream: `opengeostat/pygslib`, commit `c26c3bff20c7cc16583c94fb850e17600b9a610d`, source version `0.0.0.7.1.1`.
+- Official Anaconda channel contains a Linux `0.0.0.6.0.0` CPython 3.8 package; there is no PyPI release.
+- Source setup under Python 3.12 fails with `ModuleNotFoundError: No module named 'numpy.distutils'`.
+- The official Python 3.8 Conda binary was installed in an isolated environment. Import failed first on `libgfortran.so.4`; after pinning the compatible `libgfortran4=7.5.0`, it failed in VTK/netCDF with `undefined symbol: H5Pset_fapl_ros3`.
+- No ChimbaSmart adapter was enabled because a functional supported runtime was not obtained. No processing result is fabricated.
+- Its `setup.py` declares `GPL and MIT`, root `LICENSE.txt` is MIT, source contains GPL-3 Cython modules and GPL-2 KT3D/KPROP code, and GSLIB sources retain Stanford notices. Commercial service/distribution clearance requires file-level provenance and legal review.
+- Potential alternatives: current DownholeComposite for limited composites and PyKrige (BSD-3-Clause) for ordinary kriging. GSTools may be evaluated for additional variogram/kriging work. None is claimed to replace PyGSLIB resource-estimation or block-model functionality.
 
 ## Data conversion
 
@@ -62,5 +66,5 @@ Engine parameters are carried into the durable job input and added to the job da
 - GemPy: validate stratigraphic ordering and multiple surfaces/fault relationships.
 - LoopStructural: support folds, faults and unconformities beyond foliation.
 - pyGIMLi: implement and test measured-data inversion with explicit error models.
-- PyGSLIB: obtain a legal source/distribution package and isolate native dependencies.
+- PyGSLIB: obtain maintainer-supported Linux build instructions/runtime, resolve VTK/HDF5/GFortran ABI and GPL/MIT component licensing, then add a separate Python 3.8 worker or supported port only after reference tests pass.
 - GDAL/QGIS: provide native/container processing only after license and deployment design review.

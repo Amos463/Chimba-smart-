@@ -1,6 +1,6 @@
 # Deployment status
 
-The repository includes a Docker Compose PostgreSQL/PostGIS and API baseline. It is not a production deployment certification.
+The repository includes Docker Compose services for PostgreSQL/PostGIS, Redis, FastAPI, the standard RQ worker and isolated optional-engine worker. This configuration is an engineering deployment baseline, not a production deployment certification.
 
 ## Required environment
 
@@ -10,7 +10,7 @@ The repository includes a Docker Compose PostgreSQL/PostGIS and API baseline. It
 - `POSTGRES_PASSWORD`
 - `CORS_ORIGINS`
 - `ATTACHMENTS_DIR`
-- `REDIS_URL` once Redis-backed controls are enabled
+- `REDIS_URL`
 - `ACCESS_TOKEN_MINUTES`
 - `REFRESH_TOKEN_DAYS`
 - `MAX_REQUEST_BYTES`
@@ -25,4 +25,22 @@ Run `alembic upgrade head` during a controlled migration step before starting th
 
 ## Workers
 
-Do not scale the current `FastAPI.BackgroundTasks` implementation as a durable processor. Deploy a Redis-backed worker system (RQ or Celery) before production job workloads.
+- Standard jobs use RQ queue `chimbasmart`.
+- Heavy optional jobs (GemPy, LoopStructural, pyGIMLi, PyKrige) route to `chimbasmart-engines`, run by the separate `engine-worker` image.
+- Redis queue routing is configured, but worker crash/retry/restart and API-to-worker-to-database acceptance have NOT RUN in a live deployment.
+- PyGSLIB is not enabled; its official binary failed import validation and its source build is not compatible with Python 3.12. See `SERVER_ENGINE_DEPLOYMENT_REPORT.md`.
+
+## Engine container
+
+Build locally with `docker build -f backend/Dockerfile.engines -t chimbasmart-engine-worker .`. The image build itself must be verified by GitHub Actions before release; no Actions run is recorded yet.
+
+## Operational requirements
+
+- Terminate TLS at a maintained HTTPS reverse proxy and enforce secure forwarded headers.
+- Keep PostgreSQL and Redis on private networks; apply authentication, ACLs, TLS and firewall rules.
+- Configure persistent, encrypted attachment storage and tested database/attachment backups.
+- Configure monitoring for API health, worker queue depth, failed jobs, storage, database and Redis.
+- Run migrations from a controlled deployment job after a verified backup.
+- Do not use the development SQLite database for production.
+
+Production secrets, domain, TLS certificate, monitoring, retention and restore objectives require owner configuration.
