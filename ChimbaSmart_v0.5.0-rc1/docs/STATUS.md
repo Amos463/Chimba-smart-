@@ -7,14 +7,14 @@ Status date: 2026-11-25. This describes the current code and verified evidence, 
 | Area | Status | Evidence / gap |
 |---|---|---|
 | FastAPI backend | PARTIAL | Auth, project roles, sample/assay/drillhole records, sync, conflicts, attachments, reports and engine jobs exist; production-scale API E2E is incomplete. |
-| PostgreSQL/PostGIS | PARTIAL | Migrations through 0007 and spatial columns/indexes exist; previous disposable migration passed; rerun required in current CI. |
+| PostgreSQL/PostGIS | PARTIAL | Migrations through 0007 and spatial columns/indexes exist; live PostGIS 16-3.4 migration test passed; full restore remains incomplete. |
 | SQLite | PASS | Local/development and API test path works. |
-| Redis/RQ | PARTIAL | Rate limiting, core worker and isolated engine queue/container are configured; crash/retry/recovery are not proven. |
+| Redis/RQ | PARTIAL | Live API-to-Redis-to-RQ-worker persistence and worker restart passed; isolated engine worker and retry recovery remain incomplete. |
 | PWA | PARTIAL | IndexedDB queue, push/pull, attachment and conflict storage exist; browser interruption/restart and multi-device E2E have not run. |
-| Flutter | PARTIAL | Local SQLite table, login/push primitives and GPS helper exist; full domain repository, attachment, pull/conflict and field workflows are absent. |
+| Flutter | PARTIAL | SQLite schema v2, local field-capture form, project/pull/push primitives and GPS helper exist; photos, durable uploads, conflicts and restart/device acceptance remain incomplete. |
 | Backup/restore | PARTIAL | PostgreSQL marker dump/restore passed previously; full project plus photos/application restore not tested. |
 | Android | PARTIAL | APK/AAB previously built locally with debug signing; production signing and real-device acceptance are missing. |
-| CI | NOT RUN | GitHub-hosted workflow definitions are being added; no workflow run is evidence yet. |
+| CI | BLOCKED | Workflows are pushed, but GitHub Actions API reports zero discovered workflows and workflow dispatch is not available with the current token. |
 
 ## Geological processing
 
@@ -45,11 +45,14 @@ Latest recorded current-turn runs:
 - Android Gradle project configuration: passed with Java 17.
 - Workflow YAML syntax: all five workflows parsed; GitHub Actions: NOT RUN.
 - Docker Compose syntax: passed with disposable test-only secret values.
+- Live PostGIS migration test: 1 passed.
+- Live API login/project/sync push/pull and duplicate push: passed.
+- Live RQ trend2d execution and worker restart: passed; one invalid RQ 2.4 enqueue argument was found and fixed.
 - JavaScript syntax: NOT RUN locally; Node.js is unavailable.
 - Browser PWA E2E: NOT RUN.
-- Live Redis suite: passed with disposable Redis. PostGIS after latest engine changes: NOT RUN.
-- Worker restart/crash/retry: NOT RUN.
-- Full backup/restore with attachments: NOT RUN.
+- Live Redis suite: passed with disposable Redis.
+- Worker crash/restart: queue persistence plus restart execution passed for a job that was rejected by scientific validation.
+- Full backup/restore: PostgreSQL logical restore passed for project, record, jobs and audit counts; separate attachment marker restore passed. Complete application/PWA/Flutter attachment restore remains PARTIAL.
 
 ## Commercial release decision
 

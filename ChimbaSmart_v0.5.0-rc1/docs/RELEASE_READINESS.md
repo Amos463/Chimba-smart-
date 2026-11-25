@@ -9,13 +9,13 @@ Baseline summary incorporates 2026-11-24 evidence; current-turn evidence is appe
 | Backend/API tests | PASS | Latest full suite with disposable Redis: 35 passed, 1 skipped, 1 warning |
 | Live PostgreSQL/PostGIS | PASS | Disposable PostGIS 16-3.4 migration test passed |
 | Alembic | PASS | 0001-0007 SQLite upgrade and metadata parity |
-| Redis/RQ | PARTIAL | Dependencies, worker service and Redis connectivity implemented; worker crash/retry end-to-end test pending |
+| Redis/RQ | PARTIAL | Disposable live queue execution and stopped-worker restart passed; retry policy and isolated engine worker remain incomplete |
 | RBAC | PASS | Six configurable role names plus legacy/owner roles |
 | Conflict resolution | PASS | Server API list and resolution tested |
-| Backup/restore | PARTIAL | Disposable PostgreSQL marker dump/restore verified; full project and attachment restore NOT RUN |
+| Backup/restore | PARTIAL | PostgreSQL project/record/job/audit restore verified in a clean DB and attachment marker restored in a clean volume; complete application restoration remains pending |
 | PWA | PARTIAL | IndexedDB, push/pull, photos and conflict archive; browser smoke test pending |
 | Flutter | PARTIAL | Flutter 3.38.5 analyze and test passed on 2026-11-25; native local schema/API workflows remain incomplete |
-| GitHub Actions | PARTIAL | Five hosted-runner workflows added and YAML-parsed; not run on GitHub |
+| GitHub Actions | BLOCKED | Five workflows are pushed and YAML-parsed, but GitHub API reports zero workflows and the current token cannot dispatch or read Actions permissions |
 | Heavy engines | PARTIAL | GemPy, LoopStructural and pyGIMLi execute real synthetic tests; PyGSLIB blocked; full production geological validation pending |
 | Android APK/AAB | PARTIAL | Release APK/AAB built successfully; artifacts use the Android debug certificate until production signing is configured |
 | Web build | PASS | Release web build completed under `mobile/build/web/` |

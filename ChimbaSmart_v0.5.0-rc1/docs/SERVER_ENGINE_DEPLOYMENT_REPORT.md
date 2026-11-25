@@ -37,4 +37,19 @@ PyGSLIB uses Fortran wrappers and documents drillhole compositing, variograms an
 
 ## Deployment status
 
-Docker Compose syntax is validated. The heavy engine container has not been built or run in a production-like deployment, and engine-worker job execution/recovery has not been verified. GitHub-hosted Actions are planned/added separately; no run exists until workflows execute on GitHub.
+Docker Compose syntax is validated. The core API, PostgreSQL/PostGIS, Redis and standard RQ worker were started in a disposable local production-like stack.
+
+## Live runtime evidence 2026-11-25
+
+- API `/health` and `/ready`: PASS.
+- PostgreSQL/PostGIS migration test: **1 passed** against PostGIS 16-3.4.
+- Authenticated project creation: PASS.
+- Sync push: PASS.
+- Sync pull: PASS.
+- Repeated sync push: PASS; server returned `status="duplicate"` and preserved server version.
+- API-to-Redis-to-RQ-worker-to-database trend2d job: PASS through queue execution and persisted database status/result.
+- RQ 2.4 queue compatibility: a real failure was found and fixed because `retries=0` was delivered as a function keyword. Worker restart test passed after stopping and restarting the worker.
+- Worker stopped while a job was queued: job ran after worker restart and persisted `rejected` with engine version `1.3`, input hash and a validation error.
+- Full PostGIS database plus attachment restore: NOT RUN yet.
+- Heavy engine-worker container and isolated engine queue: NOT RUN end-to-end.
+- GitHub-hosted Actions: BLOCKED by repository Actions discovery/permissions; the API reported zero workflows and dispatch returned 404.

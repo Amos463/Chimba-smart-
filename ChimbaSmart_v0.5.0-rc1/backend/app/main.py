@@ -453,7 +453,7 @@ def new_job(b:JobIn,bg:BackgroundTasks,user:User=Depends(current_user),db:Sessio
             isolated_engines={'gempy','loopstructural','pygimli','pykrige'}
             queue_name='chimbasmart-engines' if j.engine in isolated_engines else 'chimbasmart'
             queue=Queue(queue_name,connection=Redis.from_url(config.REDIS_URL))
-            queue.enqueue('app.worker.execute_job',j.id,job_timeout='30m',failure_ttl=86400,retries=0,job_id=j.id)
+            queue.enqueue('app.worker.execute_job',j.id,job_timeout='30m',failure_ttl=86400,job_id=j.id)
             audit(db,None,'job.queued',actor_id=user.id,project_id=j.project_id,resource_type='job',resource_id=j.id)
             db.commit()
         except Exception as exc:
