@@ -41,6 +41,7 @@ async function capture(page, id, index, assay = '') {
     });
   }
   await page.locator('#sv').click();
+  await expect(page.locator('#gp')).toContainText('Imehifadhiwa kwenye simu');
 }
 
 async function goHome(page) {
