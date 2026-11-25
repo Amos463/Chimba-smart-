@@ -63,6 +63,43 @@ test.afterEach(async ({}, testInfo) => {
   }
 });
 
+test('Capacitor bridge requires a secure server URL and routes API requests', async ({ browser }) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    window.Capacitor = { isNativePlatform: () => true };
+  });
+  const page = await context.newPage();
+  acceptancePage = page;
+  page.setDefaultTimeout(15_000);
+  await page.goto(baseURL);
+
+  await expect(page.locator('#nativeApiSettings')).toBeVisible();
+  await expect(page.locator('#go')).toBeDisabled();
+  await page.locator('#nativeApiUrl').fill('http://pilot.example.test');
+  await page.locator('#saveNativeApiUrl').click();
+  await expect(page.locator('#nativeApiMessage')).toContainText('Tumia HTTPS');
+  await expect(page.locator('#go')).toBeDisabled();
+
+  let requestedUrl;
+  await page.route('https://pilot.example.test/**', async route => {
+    requestedUrl = route.request().url();
+    await route.fulfill({
+      status: 200,
+      headers: {
+        'access-control-allow-origin': new URL(baseURL).origin,
+        'content-type': 'application/json',
+      },
+      body: '{"status":"ready"}',
+    });
+  });
+  await page.locator('#nativeApiUrl').fill('https://pilot.example.test');
+  await page.locator('#saveNativeApiUrl').click();
+  await expect(page.locator('#go')).toBeEnabled();
+  expect(await page.evaluate(() => fetch('/ready').then(response => response.status))).toBe(200);
+  expect(requestedUrl).toBe('https://pilot.example.test/ready');
+  await context.close();
+});
+
 async function addLaterAssay(page, id, value) {
   await goHome(page);
   await expect(page.locator('#home')).toBeVisible();

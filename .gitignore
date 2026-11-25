@@ -13,6 +13,13 @@ __pycache__/
 **/build/
 **/.dart_tool/
 **/.gradle/
+**/node_modules/
+ChimbaSmart_v0.5.0-rc1/mobile/capacitor/www/
+ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android/app/src/main/assets/public/
+ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android/app/src/main/assets/capacitor.config.json
+ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android/app/src/main/assets/capacitor.plugins.json
+ChimbaSmart_v0.5.0-rc1/mobile/capacitor/testing-artifacts/
+ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/
 *.apk
 *.aab
 *.keystore

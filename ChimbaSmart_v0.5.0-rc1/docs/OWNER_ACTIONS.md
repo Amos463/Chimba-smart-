@@ -17,3 +17,4 @@ The following require owner or external action:
 13. Push-triggered Actions are active. Grant the operator token Actions read/write scope only if manual workflow dispatch or repository Actions settings inspection is required; the current integration token receives HTTP 403 for those operations.
 14. Provide HTTPS reverse proxy/domain configuration, external monitoring and alerting. The Compose API now binds only to localhost.
 15. Approve an attachment write-role policy and confirm whether project members with `create` but not `update` should be permitted to upload photos; current route requires `update`.
+16. Choose the pilot HTTPS API URL, configure the deployment CORS allowlist for the Android Capacitor origin `https://localhost`, and arrange physical-device acceptance; GPS, camera, restart, and sync checks remain NOT RUN.

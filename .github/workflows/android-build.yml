@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - "ChimbaSmart_v0.5.0-rc1/mobile/**"
+      - "ChimbaSmart_v0.5.0-rc1/frontend/**"
       - ".github/workflows/android-build.yml"
   pull_request:
     paths:
       - "ChimbaSmart_v0.5.0-rc1/mobile/**"
+      - "ChimbaSmart_v0.5.0-rc1/frontend/**"
       - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
@@ -27,45 +29,39 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
+          cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android/**/*.gradle*
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/package-lock.json
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: "3.38.5"
-          channel: stable
-      - name: Resolve Dart packages
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
-        run: flutter pub get
-      - name: Analyze and test
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
-        run: |
-          flutter analyze
-          flutter test
-      - name: Build debug APK
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
-        run: flutter build apk --debug
-      - name: Build release APK testing artifact
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
-        run: flutter build apk --release
-      - name: Build release AAB testing artifact
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
-        run: flutter build appbundle --release
+      - name: Install pinned Capacitor dependencies
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
+        run: npm ci
+      - name: Stage PWA and synchronize Android shell
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
+        run: npm run cap:sync
+      - name: Build debug and testing-signed release artifacts
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android
+        run: ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
       - name: Verify and hash artifacts
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
         run: |
-          test -s build/app/outputs/flutter-apk/app-debug.apk
-          test -s build/app/outputs/flutter-apk/app-release.apk
-          test -s build/app/outputs/bundle/release/app-release.aab
-          sha256sum build/app/outputs/flutter-apk/app-debug.apk \
-            build/app/outputs/flutter-apk/app-release.apk \
-            build/app/outputs/bundle/release/app-release.aab
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          test -s android/app/build/outputs/bundle/release/app-release.aab
+          mkdir -p testing-artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk testing-artifacts/chimbasmart-debug.apk
+          cp android/app/build/outputs/apk/release/app-release.apk testing-artifacts/chimbasmart-testing-signed.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab testing-artifacts/chimbasmart-testing-signed.aab
+          (cd testing-artifacts && sha256sum chimbasmart-debug.apk chimbasmart-testing-signed.apk chimbasmart-testing-signed.aab > SHA256SUMS)
       - uses: actions/upload-artifact@v4
         with:
-          name: chimbasmart-android-testing-${{ github.run_number }}
-          path: |
-            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-debug.apk
-            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-release.apk
-            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/bundle/release/app-release.aab
-          retention-days: 7
+          name: chimbasmart-capacitor-testing-signed-${{ github.run_number }}
+          path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/testing-artifacts/
+          retention-days: 14
           if-no-files-found: error
