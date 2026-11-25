@@ -203,9 +203,22 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
   });
   expect(conflict.status).toBe('conflict');
   await goHome(secondPage);
+  const projectId = await secondPage.evaluate(() => localStorage.getItem('pid'));
+  const conflictListResponse = secondPage.waitForResponse(response =>
+    response.request().method() === 'GET' &&
+    new URL(response.url()).pathname === `/projects/${projectId}/conflicts`,
+  );
   await secondPage.locator('#retrySync').click();
-  await expect(secondPage.locator('#conflictList .conflict-card')).toBeVisible();
+  const listedConflicts = await conflictListResponse;
+  expect(listedConflicts.status()).toBe(200);
+  expect(await listedConflicts.json()).toHaveLength(1);
+  await expect(secondPage.locator('#conflictList .conflict-card')).toBeVisible({ timeout: 30_000 });
+  const resolutionResponse = secondPage.waitForResponse(response =>
+    response.request().method() === 'POST' &&
+    new URL(response.url()).pathname.endsWith(`/projects/${projectId}/conflicts/${conflict.conflict_id}/resolve`),
+  );
   await secondPage.getByRole('button', { name: 'Hifadhi la seva' }).click();
+  expect((await resolutionResponse).status()).toBe(200);
   await expect(secondPage.locator('#conflictList .conflict-card')).toHaveCount(0);
 
   await secondContext.close();
