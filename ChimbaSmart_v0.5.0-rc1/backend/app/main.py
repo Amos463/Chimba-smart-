@@ -27,10 +27,20 @@ canon=lambda p: json.dumps(p,sort_keys=True,separators=(',',':'),ensure_ascii=Fa
 sha=lambda p: hashlib.sha256(canon(p).encode()).hexdigest()
 def current_user(creds:HTTPAuthorizationCredentials|None=Depends(bearer),db:Session=Depends(get_db)):
     if not creds: raise HTTPException(401,'Ingia kwanza')
-    try: uid=decode_token(creds.credentials)['sub']
+    try: claims=decode_token(creds.credentials); uid=claims['sub']
     except jwt.PyJWTError: raise HTTPException(401,'Kipindi kimeisha, ingia tena')
+    except (KeyError,TypeError): raise HTTPException(401,'Kipindi kimeisha, ingia tena')
     u=db.get(User,uid)
     if not u: raise HTTPException(401,'Mtumiaji hajulikani')
+    if claims.get('ver',0)!=u.auth_version:
+        raise HTTPException(401,'Kipindi kimeisha, ingia tena')
+    session_id=claims.get('sid')
+    if session_id:
+        session=db.get(RefreshSession,session_id)
+        now=datetime.now(timezone.utc)
+        if (not session or session.user_id!=u.id or utc_aware(session.revoked_at)
+                or utc_aware(session.expires_at)<=now):
+            raise HTTPException(401,'Kipindi kimeisha, ingia tena')
     return u
 def need_member(db,user,pid,owner=False):
     p=db.get(Project,pid)
@@ -166,7 +176,7 @@ def login(b:LoginIn,request:Request,db:Session=Depends(get_db)):
         expires_at=datetime.now(timezone.utc)+__import__('datetime').timedelta(days=config.REFRESH_TOKEN_DAYS),
     )
     db.add(session); audit(db,request,'auth.login',actor_id=u.id,outcome='success'); db.commit()
-    return TokenOut(access_token=create_token(u.id),refresh_token=raw_refresh)
+    return TokenOut(access_token=create_token(u.id,session.id,u.auth_version),refresh_token=raw_refresh)
 
 @app.post('/auth/refresh',response_model=TokenOut)
 def refresh(b:RefreshIn,request:Request,db:Session=Depends(get_db)):
@@ -174,6 +184,11 @@ def refresh(b:RefreshIn,request:Request,db:Session=Depends(get_db)):
     session=db.query(RefreshSession).filter_by(token_hash=token_hash).first()
     now=datetime.now(timezone.utc)
     if not session or utc_aware(session.revoked_at) or utc_aware(session.expires_at)<=now:
+        audit(db,request,'auth.refresh',outcome='denied')
+        db.commit()
+        raise HTTPException(401,'Refresh token si halali')
+    user=db.get(User,session.user_id)
+    if not user:
         audit(db,request,'auth.refresh',outcome='denied')
         db.commit()
         raise HTTPException(401,'Refresh token si halali')
@@ -187,15 +202,26 @@ def refresh(b:RefreshIn,request:Request,db:Session=Depends(get_db)):
     session.replaced_by=replacement.id
     db.add(replacement); audit(db,request,'auth.refresh',actor_id=session.user_id,outcome='success')
     db.commit()
-    return TokenOut(access_token=create_token(session.user_id),refresh_token=raw_refresh)
+    return TokenOut(access_token=create_token(user.id,replacement.id,user.auth_version),refresh_token=raw_refresh)
 
 @app.post('/auth/logout')
-def logout(b:LogoutIn,user:User=Depends(current_user),request:Request=None,db:Session=Depends(get_db)):
+def logout(b:LogoutIn,user:User=Depends(current_user),creds:HTTPAuthorizationCredentials|None=Depends(bearer),request:Request=None,db:Session=Depends(get_db)):
+    now=datetime.now(timezone.utc)
+    claims=decode_token(creds.credentials)
+    session_id=claims.get('sid')
+    if session_id:
+        session=db.get(RefreshSession,session_id)
+        if session and session.user_id==user.id and not utc_aware(session.revoked_at):
+            session.revoked_at=now
+    else:
+        user.auth_version+=1
+        for session in db.query(RefreshSession).filter_by(user_id=user.id,revoked_at=None).all():
+            session.revoked_at=now
     if b.refresh_token:
         token_hash=hashlib.sha256(b.refresh_token.encode()).hexdigest()
         session=db.query(RefreshSession).filter_by(token_hash=token_hash,user_id=user.id).first()
         if session and not session.revoked_at:
-            session.revoked_at=datetime.now(timezone.utc)
+            session.revoked_at=now
     audit(db,request,'auth.logout',actor_id=user.id,outcome='success')
     db.commit()
     return {'ok':True}
@@ -233,6 +259,7 @@ def password_reset_confirm(b:PasswordResetConfirmIn,request:Request,db:Session=D
     if not u:
         raise HTTPException(400,'Reset token si halali')
     u.password_hash=hash_password(b.password)
+    u.auth_version+=1
     row.used_at=now
     for session in db.query(RefreshSession).filter_by(user_id=u.id,revoked_at=None).all():
         session.revoked_at=now

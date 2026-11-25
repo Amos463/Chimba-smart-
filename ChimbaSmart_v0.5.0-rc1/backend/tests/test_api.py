@@ -1,5 +1,8 @@
-import json, os, pytest
+import hashlib, json, os, pytest, secrets, uuid
+from datetime import datetime,timedelta,timezone
 from conftest import *
+from app.models import PasswordResetToken
+from app.security import create_token
 
 
 @pytest.fixture(autouse=True)
@@ -227,6 +230,7 @@ def test_refresh_rotation_and_reuse(client):
     n=mkuser()
     login=client.post('/auth/login',json={'username':n,'password':PW})
     assert login.status_code==200
+    old_access=login.json()['access_token']
     refresh=login.json()['refresh_token']
     assert refresh
     first=client.post('/auth/refresh',json={'refresh_token':refresh})
@@ -235,15 +239,63 @@ def test_refresh_rotation_and_reuse(client):
     assert replacement and replacement!=refresh
     assert client.post('/auth/refresh',json={'refresh_token':refresh}).status_code==401
     assert client.post('/auth/refresh',json={'refresh_token':replacement}).status_code==200
+    assert client.get('/projects',headers={'Authorization':'Bearer '+old_access}).status_code==401
 
 
 def test_password_reset_revokes_refresh_sessions(client):
     n=mkuser()
     login=client.post('/auth/login',json={'username':n,'password':PW})
     refresh=login.json()['refresh_token']
+    raw=secrets.token_urlsafe(48)
+    db=SessionLocal()
+    try:
+        db.add(PasswordResetToken(
+            id=str(uuid.uuid4()),user_id=db.query(User).filter_by(username=n).first().id,
+            token_hash=hashlib.sha256(raw.encode()).hexdigest(),
+            expires_at=datetime.now(timezone.utc)+timedelta(minutes=30),
+        ))
+        db.commit()
+    finally:
+        db.close()
+    result=client.post('/auth/password-reset/confirm',json={'token':raw,'password':'New-Secure-Password-123'})
+    assert result.status_code==200
+    assert client.get('/projects',headers={'Authorization':'Bearer '+login.json()['access_token']}).status_code==401
+    assert client.post('/auth/refresh',json={'refresh_token':refresh}).status_code==401
+    assert client.post('/auth/login',json={'username':n,'password':'New-Secure-Password-123'}).status_code==200
+
+def test_logout_revokes_only_current_session(client):
+    n=mkuser()
+    first=client.post('/auth/login',json={'username':n,'password':PW}).json()
+    second=client.post('/auth/login',json={'username':n,'password':PW}).json()
+    first_headers={'Authorization':'Bearer '+first['access_token']}
+    second_headers={'Authorization':'Bearer '+second['access_token']}
+    assert client.get('/projects',headers=first_headers).status_code==200
+    assert client.get('/projects',headers=second_headers).status_code==200
+    assert client.post('/auth/logout',json={},headers=first_headers).status_code==200
+    assert client.get('/projects',headers=first_headers).status_code==401
+    assert client.post('/auth/refresh',json={'refresh_token':first['refresh_token']}).status_code==401
+    assert client.get('/projects',headers=second_headers).status_code==200
+
+def test_logout_invalidates_legacy_access_tokens(client):
+    n=mkuser()
+    login=client.post('/auth/login',json={'username':n,'password':PW}).json()
+    db=SessionLocal()
+    try:
+        user=db.query(User).filter_by(username=n).first()
+        token=create_token(user.id)
+    finally:
+        db.close()
+    headers={'Authorization':'Bearer '+token}
+    assert client.post('/auth/logout',json={},headers=headers).status_code==200
+    assert client.get('/projects',headers=headers).status_code==401
+    assert client.post('/auth/refresh',json={'refresh_token':login['refresh_token']}).status_code==401
+
+def test_password_reset_request_does_not_revoke_sessions(client):
+    n=mkuser()
+    login=client.post('/auth/login',json={'username':n,'password':PW}).json()
     request=client.post('/auth/password-reset/request',json={'username':n})
     assert request.status_code==200
-    assert client.post('/auth/refresh',json={'refresh_token':refresh}).status_code==200
+    assert client.post('/auth/refresh',json={'refresh_token':login['refresh_token']}).status_code==200
 
 
 def test_configurable_project_role_permissions(ctx,client):

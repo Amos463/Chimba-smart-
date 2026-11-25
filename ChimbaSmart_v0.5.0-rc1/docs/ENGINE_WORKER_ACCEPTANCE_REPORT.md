@@ -12,7 +12,7 @@ Overall status: **PARTIAL**
 | Worker restart | PARTIAL | A job queued while the standard worker was stopped ran after worker restart. |
 | Crash recovery | NOT RUN | No forced worker crash test with an active job was completed. |
 | Retry policy | NOT RUN | Retry/backoff and exhausted-retry behavior have not been verified. |
-| Isolated engine-worker image | PASS | [Engine CI run 45557089004](https://github.com/Amos463/Chimba-smart-/actions/runs/45557089004) built the engine-worker image successfully. Container execution against live Redis and PostgreSQL remains unverified. |
+| Isolated engine-worker image | PASS | [Engine CI run 45560541814](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541814) built the engine-worker image successfully. Container execution against live Redis and PostgreSQL remains unverified. |
 | Scientific result through isolated worker | NOT RUN | No successful scientific job was observed end-to-end through the isolated image and persisted database output. |
 
 ## Engine runtime status

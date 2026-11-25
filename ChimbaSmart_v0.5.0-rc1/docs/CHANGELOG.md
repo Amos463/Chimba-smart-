@@ -1,12 +1,18 @@
 # Changelog
 
+## 2026-11-25 — Authentication hardening
+
+- Addressed two confirmed authentication findings: bcrypt now hashes the full password through SHA-256 before bcrypt, and access tokens are bound to refresh sessions and invalidated on logout/password reset.
+- Added migration 0008 for per-user auth versions, preserving existing users with a default version. Legacy bcrypt hashes for passwords of 72 or more UTF-8 bytes are rejected because their original suffix cannot be verified; affected accounts require a secure password reset.
+- Added regression tests; local backend suite: 38 passed, 5 skipped, 1 warning. Hosted CI and production deployment validation remain pending.
+
 ## 2026-11-25 — Hosted workflow and dependency audit follow-up
 
 - Fixed backend Redis integration test to use the workflow-provided `REDIS_URL`.
 - Fixed Android SDK provisioning by pinning setup-android and explicitly installing platform-tools, Android 36 and build-tools 36.0.0.
 - Added main-branch release validation that cannot enter the signing/publishing job; the hosted validation run passed with publish skipped.
 - Built and uploaded debug APK, testing APK and AAB; recorded workflow artifact URL and SHA-256 checksums in `ANDROID_RELEASE_REPORT.md`.
-- `pip-audit` found 127 advisories in five stale dependency versions. Updated FastAPI/Starlette, PyJWT, pytest, python-multipart and Pillow pins; local tests and audit pass, and a hosted rerun is required.
+- `pip-audit` initially found 127 advisories in five stale dependency versions. Updated FastAPI/Starlette, PyJWT, pytest, python-multipart and Pillow pins; local tests and the hosted backend audit pass with no known vulnerabilities.
 - Added the requested mobile, PWA, worker, restore, Android, security/license and market-readiness reports. Commercial release remains blocked.
 
 ## 2026-11-25 — Engineering audit and release-readiness checkpoint

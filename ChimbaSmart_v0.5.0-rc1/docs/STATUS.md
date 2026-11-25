@@ -7,14 +7,15 @@ Status date: 2026-11-25. This describes the current code and verified evidence, 
 | Area | Status | Evidence / gap |
 |---|---|---|
 | FastAPI backend | PARTIAL | Auth, project roles, sample/assay/drillhole records, sync, conflicts, attachments, reports and engine jobs exist; production-scale API E2E is incomplete. |
-| PostgreSQL/PostGIS | PARTIAL | Migrations through 0007 and spatial columns/indexes exist; live PostGIS 16-3.4 migration test passed; full restore remains incomplete. |
+| Authentication | PARTIAL | Session-bound access tokens, logout/reset invalidation and versioned bcrypt hashing are covered by local regression tests; legacy accounts and production reset delivery need owner action. |
+| PostgreSQL/PostGIS | PARTIAL | Migrations through 0008 and spatial columns/indexes exist; live PostGIS 16-3.4 migration test passed before 0008; full restore remains incomplete. |
 | SQLite | PASS | Local/development and API test path works. |
 | Redis/RQ | PARTIAL | Live API-to-Redis-to-RQ-worker persistence and worker restart passed; isolated engine worker and retry recovery remain incomplete. |
 | PWA | PARTIAL | IndexedDB queue, push/pull, attachment and conflict storage exist; browser interruption/restart and multi-device E2E have not run. |
 | Flutter | PARTIAL | SQLite schema v2, local field-capture form, project/pull/push primitives and GPS helper exist; photos, durable uploads, conflicts and restart/device acceptance remain incomplete. |
 | Backup/restore | PARTIAL | PostgreSQL marker dump/restore passed previously; full project plus photos/application restore not tested. |
 | Android | PARTIAL | Hosted debug APK, testing release APK and AAB built and uploaded in run 45558488726; production signing and real-device acceptance are missing. |
-| CI | PARTIAL | All five root workflows are discovered. Engine CI, web build, Android build and main-branch release validation passed. Backend integration/migration/JS tests passed, but its audit step found dependency advisories; updated pins await hosted verification. |
+| CI | PASS | All five root workflows are discovered and have successful hosted runs. Backend audit passes after dependency updates; release publish job was skipped on `main`. |
 
 ## Geological processing
 
@@ -37,15 +38,15 @@ Status date: 2026-11-25. This describes the current code and verified evidence, 
 
 Latest recorded current-turn runs:
 
-- Backend hosted integration/PostGIS/Redis suite on 2026-11-25: 34 passed, 3 skipped, 5 warnings; migration and JS syntax steps passed. The same run failed dependency audit with 127 advisories across five packages; see `SECURITY_AND_LICENSE_CLEARANCE.md`.
-- Updated dependency set local backend suite on 2026-11-25: 32 passed, 5 skipped, 1 Starlette deprecation warning. Local `pip-audit -r backend/requirements.txt`: no known vulnerabilities.
+- Backend hosted integration/PostGIS/Redis suite on 2026-11-25 before the latest auth changes: 34 passed, 3 skipped, 5 warnings; migration, JS syntax and dependency audit steps passed.
+- Local backend suite after auth fixes on 2026-11-25: 38 passed, 5 skipped, 1 Starlette deprecation warning. Local `pip-audit -r backend/requirements.txt`: no known vulnerabilities.
 - Backend API-only suite on SQLite: 26 passed, 1 skipped, 1 warning; local Redis service was unavailable.
 - Focused engine suite: 4 passed, 1 warning.
 - Python compileall: passed.
 - Flutter analyze: passed with no issues; Flutter test: passed (one widget smoke test).
-- Fresh SQLite migrations through 0007 and Alembic metadata check: passed.
+- Fresh SQLite migrations through 0008 and Alembic metadata check: passed. Upgrade from 0007 preserved a user row and initialized `auth_version` to 0.
 - Android Gradle project configuration: passed with Java 17.
-- Workflow YAML syntax: all five workflows parsed. Hosted workflow runs: backend #45558488839 (audit failed after integration tests passed), engine #45557089004 (success), Android #45558488726 (success), web #45557089165 (success), release validation #45558488738 (success, publish skipped).
+- Workflow YAML syntax: all five workflows parsed. Hosted workflow runs: backend #45560541803, engine #45560541814, Android #45558488726, web #45557089165, release validation #45560541798; all succeeded. The release publish job was skipped on `main`.
 - Docker Compose syntax: passed with disposable test-only secret values.
 - Live PostGIS migration test: 1 passed.
 - Live API login/project/sync push/pull and duplicate push: passed.

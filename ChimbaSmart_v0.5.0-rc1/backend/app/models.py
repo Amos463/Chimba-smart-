@@ -8,6 +8,7 @@ class User(Base):
     __tablename__='users'
     id:Mapped[str]=S(primary_key=True); username:Mapped[str]=S(100,unique=True,index=True)
     password_hash:Mapped[str]=S(255); role:Mapped[str]=S(40,default='field_user')
+    auth_version:Mapped[int]=mapped_column(Integer,default=0,server_default='0',nullable=False)
 class Project(Base):
     __tablename__='projects'
     id:Mapped[str]=S(primary_key=True); name:Mapped[str]=S(200)

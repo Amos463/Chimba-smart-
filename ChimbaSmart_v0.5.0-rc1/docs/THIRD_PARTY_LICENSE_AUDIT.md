@@ -1,6 +1,6 @@
 # Third-party license audit
 
-Audit date: 2026-11-24
+Audit date: 2026-11-25
 
 This is an engineering dependency inventory, not legal advice. Commercial distribution must be reviewed by the project owner or legal counsel.
 
@@ -24,11 +24,15 @@ This is an engineering dependency inventory, not legal advice. Commercial distri
 
 | Dependency | Version | License metadata |
 |---|---|---|
-| FastAPI | 0.115.12 | Inspect upstream before final release; metadata did not provide a reliable license string in the environment |
+| FastAPI | 0.165.0 | MIT (declared in generated Python SBOM) |
 | SQLAlchemy | 2.0.40 | MIT upstream |
 | Alembic | 1.15.2 | MIT upstream |
 | Pydantic | 2.11.4 | MIT upstream |
-| PyJWT | 2.10.1 | MIT |
+| PyJWT | 2.15.1 | MIT |
+| Starlette | 1.10.0 | BSD-3-Clause (FastAPI transitive dependency) |
+| pytest | 9.0.3 | MIT (test dependency) |
+| python-multipart | 0.0.34 | Apache-2.0 |
+| Pillow | 13.0.0 | MIT-CMU |
 | bcrypt | 4.3.0 | Apache-2.0 |
 | psycopg | 3.2.13 | LGPL-3.0-only |
 | Redis | 6.4.0 | upstream license metadata unavailable in this environment |
@@ -51,7 +55,7 @@ This is an engineering dependency inventory, not legal advice. Commercial distri
 
 ## Required next actions
 
-- Generate a lockfile reproducible SBOM with package URL, version, license and copyright data.
+- Review the Python CycloneDX snapshot at `DEPENDENCY_SBOM_PYTHON.cdx.json`; generate the corresponding Dart/native SBOM and lock unpinned Python dependencies.
 - Retain upstream `LICENSE`/`NOTICE` files in release source and binary distributions where required.
 - Have counsel review the EUPL and GPL implications of the chosen SaaS and app-distribution model.
 - Do not claim commercial license clearance until counsel sign-off is recorded.

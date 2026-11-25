@@ -18,3 +18,11 @@ Workflows must live under the Git repository root at `.github/workflows/`. The p
 4. Review dependency/security alerts and accepted audit exceptions.
 
 An earlier checkpoint incorrectly placed workflow files under `ChimbaSmart_v0.5.0-rc1/.github/workflows`; GitHub does not discover nested workflow folders. The five root-level workflows are now discovered and active. A main-branch release workflow run is validation-only; release tags and explicit publish requests remain owner-gated.
+
+## Latest successful runs
+
+- Backend CI: [45560541803](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541803) — 34 passed, 3 skipped; migration, JavaScript and dependency audit passed.
+- Engine CI: [45560541814](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541814) — synthetic engine checks and isolated image build passed.
+- Android testing build: [45558488726](https://github.com/Amos463/Chimba-smart-/actions/runs/45558488726) — debug APK, testing APK and AAB uploaded; hashes are in `ANDROID_RELEASE_REPORT.md`.
+- Web/PWA build: [45557089165](https://github.com/Amos463/Chimba-smart-/actions/runs/45557089165) — JS syntax, Flutter checks and web artifact passed; browser E2E was not run.
+- Release validation: [45560541798](https://github.com/Amos463/Chimba-smart-/actions/runs/45560541798) — main-branch validation passed; owner release approval and publish steps were skipped.

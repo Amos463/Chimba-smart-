@@ -13,13 +13,14 @@ Audit date: 2026-11-25. This audit reflects the implementation and verification 
 - **PARTIAL:** API-to-Redis-to-RQ persistence and ordinary worker restart were verified. Isolated-worker execution, forced crash recovery and retry behavior remain unverified.
 - **PARTIAL:** Backup evidence is limited to a PostgreSQL marker-row restore; a full PostGIS project with attachments has not been restored and checked.
 - **PARTIAL:** Flutter has SQLite, login/push primitives, GPS helper and a smoke test, but not the required field data capture, durable attachment, conflict, pull, device restart and background synchronization workflows.
+- **RESOLVED LOCALLY:** Security review findings on bcrypt's 72-byte truncation and access-token invalidation were fixed; regression tests and migration 0008 pass locally. Legacy hashes for 72+-byte passwords require secure reset; hosted CI has not yet run on this patch.
 
 ## Medium
 
 - **PARTIAL:** pyGIMLi has a real synthetic ERT forward-model adapter; inversion and recovered-model validation are not implemented.
 - **PARTIAL:** PWA IndexedDB sync and attachment code exists, but browser end-to-end/restart coverage and client parity with the normative contract are incomplete.
-- **PARTIAL:** PostGIS migration was validated in a prior checkpoint; this audit turn freshly exercised SQLite migrations 0001-0007 and Alembic metadata parity only.
-- **PARTIAL:** GitHub Actions discovered and ran all five workflows. Engine, web, Android testing build and main-branch release validation passed. Backend integration/migration/JS checks passed but `pip-audit` found 127 advisories in five packages; patched dependency pins pass local audit and await hosted rerun.
+- **PARTIAL:** PostGIS migrations were validated through 0007 in a prior checkpoint; this turn freshly exercised SQLite migrations through 0008 and Alembic metadata parity.
+- **PASS:** All five root GitHub Actions workflows were discovered and completed successfully. Backend integration, migration, JS syntax and dependency audit passed; engine build, Android testing artifact build, web build and main-branch release validation passed. Publish remained skipped.
 
 ## Low
 
@@ -28,9 +29,9 @@ Audit date: 2026-11-25. This audit reflects the implementation and verification 
 
 ## Verified local evidence
 
-- Backend suite with disposable Redis: **35 passed, 1 skipped, 1 warning**.
+- Backend suite after auth fixes: **38 passed, 5 skipped, 1 warning**.
 - Optional engine tests: **4 passed, 1 warning**.
-- Python compileall, Flutter analyze/test, Android Gradle configuration with Java 17, Docker Compose validation, all workflow YAML parsing, fresh SQLite migration and `alembic check`: **PASS**.
+- Python compileall, Flutter analyze/test, Android Gradle configuration with Java 17, Docker Compose validation, all workflow YAML parsing, fresh SQLite migration through 0008, existing-user upgrade and `alembic check`: **PASS**.
 - PyKrige, GemPy, LoopStructural and pyGIMLi synthetic engine tests pass; these do not constitute geological or resource certification.
 - Hosted Android artifact 14997580735 includes debug APK, testing release APK and AAB; exact hashes are in `ANDROID_RELEASE_REPORT.md`.
 
