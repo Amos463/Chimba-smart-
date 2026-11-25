@@ -39,9 +39,29 @@ async function sampleRows(){
       byId.set(id,{sample_id:id,record_uuid:record.record_uuid,sample_type:payload.sample_type,lat:payload.lat,lon:payload.lon,latest_assay:null,qa_status:'not_assessed',attachment_count:0,sync_status:'pending'});
     }
   }
+  const assayGroups=new Map();
   for(const record of pendingAssays){
-    const id=normalizedId(sampleIdFromRecord(record)),row=byId.get(id);
-    if(row)row.latest_assay={...record.payload,pending:true};
+    const id=normalizedId(sampleIdFromRecord(record));
+    if(!assayGroups.has(id))assayGroups.set(id,[]);
+    assayGroups.get(id).push(record.payload);
+  }
+  for(const [id,queued] of assayGroups){
+    const row=byId.get(id);
+    if(!row)continue;
+    const latest=row.latest_assay;
+    const primary=[...(latest&&(latest.qa_role||'primary')==='primary'?[latest]:[]),...queued.filter(assay=>(assay.qa_role||'primary')==='primary')];
+    if(row.assay_status!=='conflicting_or_multiple_assays'&&row.assay_status!=='conflicting_detection_limits'&&primary.length>1){
+      const allBelow=primary.every(assay=>assay.below_detection);
+      if(allBelow){
+        if(new Set(primary.map(assay=>`${assay.unit}:${assay.detection_limit}`)).size>1)row.assay_status='conflicting_detection_limits';
+      }else if(primary.some(assay=>assay.below_detection)){
+        row.assay_status='conflicting_or_multiple_assays';
+      }else{
+        const signatures=new Set(primary.map(assay=>JSON.stringify([assay.value_num,assay.unit,assay.lab_name,assay.certificate_ref,assay.method])));
+        if(signatures.size>1)row.assay_status='conflicting_or_multiple_assays';
+      }
+    }
+    row.latest_assay={...queued[queued.length-1],pending:true};
   }
   return [...byId.values()].sort((a,b)=>a.sample_id.localeCompare(b.sample_id));
 }
