@@ -1,6 +1,14 @@
 # ChimbaSmart repository status
 
-Status date: 2026-11-25. This describes the current code and verified evidence, not the historical v0.4/v0.5 handoff.
+Status date: 2026-11-25. Pilot work is in progress on `market-pilot`; only results linked to commands or hosted runs below are treated as verified.
+
+## Market-pilot phase log
+
+| Phase | Status | Files/work | Evidence / remaining risk |
+|---|---|---|---|
+| 0 — cleanup and baseline | PASS | Moved `.devcontainer` to repository root and made it Python-only; untracked backend attachments without deleting local files; ignored runtime data/build outputs; isolated test attachments in a temporary directory; pinned NumPy/PyProj/WeasyPrint; added quickstart and owner license action; fixed Compose runtime Redis URL expansion. | Local `pytest -q`: 38 passed, 5 skipped, 1 warning. Fresh SQLite Alembic upgrade through 0008 and `alembic check`: passed. Compose config: passed. Hosted [Backend CI run 45605231625](https://github.com/Amos463/Chimba-smart-/actions/runs/45605231625) and [Engine CI run 45605231429](https://github.com/Amos463/Chimba-smart-/actions/runs/45605231429): both passed, including JavaScript syntax, PostGIS/Redis tests, dependency audit and isolated worker-image build. Local Node.js syntax checks: NOT RUN (Node.js unavailable). At Phase 0 completion, `df -h /workspaces`: `/dev/loop4 32G 24G 5.8G 81%`. |
+| 1 — backend and PWA field workflow | PASS for the implemented workflow scope | Added sample list API, project isolation, latest assay/QA/sync metadata, QA waiver migration and audited owner/admin routes, initial below-detection and batch-QA processing policy, PWA project selector, searchable sample list, later assay/QA entry, conflict controls and analysis-job UI. | Local `compileall` and backend tests: 43 passed, 5 skipped, 1 warning. Fresh SQLite migration 0001–0009 and `alembic check` passed; upgrade from 0008 preserved an existing user and created `qa_waivers`. Hosted Backend CI run [45648096883](https://github.com/Amos463/Chimba-smart-/actions/runs/45648096883) passed, including PWA Playwright acceptance; web/PWA checks [45648096960](https://github.com/Amos463/Chimba-smart-/actions/runs/45648096960) passed. Browser scenario covered offline capture/reload, sync recovery, later assays, below-detection entry, map/analysis/PDF, token refresh, second-device pull and conflict resolution. Interrupted attachment upload and restoration are not covered by this scenario. Initial geoscience policies need geologist review. |
+| 4 — Capacitor Android pilot shell | PASS for hosted build/artifact; device acceptance NOT RUN | Generated a Capacitor Android app around staged local PWA assets, added a validated HTTPS server URL setting and testing-signing configuration, and updated Android/release workflows for Capacitor builds. | Android Actions [run 45651643751](https://github.com/Amos463/Chimba-smart-/actions/runs/45651643751) passed on `0cc9c97`; the debug APK, testing-signed APK and AAB were uploaded as [artifact 15040127397](https://github.com/Amos463/Chimba-smart-/actions/runs/45651643751/artifacts/15040127397). Downloaded `SHA256SUMS` verified all three files. The Capacitor URL Playwright test passed as part of Backend CI [run 45651299497](https://github.com/Amos463/Chimba-smart-/actions/runs/45651299497) (2 browser tests passed). Physical-device checks remain NOT RUN. |
 
 ## Components and current state
 
@@ -11,11 +19,11 @@ Status date: 2026-11-25. This describes the current code and verified evidence, 
 | PostgreSQL/PostGIS | PARTIAL | Migrations through 0008 and spatial columns/indexes exist; live PostGIS 16-3.4 migration test passed before 0008; full restore remains incomplete. |
 | SQLite | PASS | Local/development and API test path works. |
 | Redis/RQ | PARTIAL | Live API-to-Redis-to-RQ-worker persistence and worker restart passed; isolated engine worker and retry recovery remain incomplete. |
-| PWA | PARTIAL | IndexedDB queue, push/pull, attachment and conflict storage exist; browser interruption/restart and multi-device E2E have not run. |
+| PWA | PARTIAL | Hosted Playwright acceptance passed in [Backend CI run 45648096883](https://github.com/Amos463/Chimba-smart-/actions/runs/45648096883): offline capture/reload, network recovery, later assay, below-detection assay, map/analysis/PDF, token refresh, second-device pull and conflict resolution. Interrupted attachment upload, browser/server restoration, and real field-device behavior remain unverified. |
 | Flutter | PARTIAL | SQLite schema v2, local field-capture form, project/pull/push primitives and GPS helper exist; photos, durable uploads, conflicts and restart/device acceptance remain incomplete. |
 | Backup/restore | PARTIAL | PostgreSQL marker dump/restore passed previously; full project plus photos/application restore not tested. |
-| Android | PARTIAL | Hosted debug APK, testing release APK and AAB built and uploaded in run 45558488726; production signing and real-device acceptance are missing. |
-| CI | PARTIAL | All five root workflows have successful runs, but only Backend CI and release validation ran on the latest checkpoint. Engine, Android and web/PWA runs are from earlier commits; manual dispatch returned HTTP 403. |
+| Android | PARTIAL | Capacitor build pipeline passed on commit `0cc9c97`; [artifact 15040127397](https://github.com/Amos463/Chimba-smart-/actions/runs/45651643751/artifacts/15040127397) contains debug APK, testing-signed APK/AAB and verified checksums. Physical-device GPS/camera/offline/restart/sync acceptance is NOT RUN. Flutter remains PARTIAL. |
+| CI | PARTIAL | Backend CI [run 45651299497](https://github.com/Amos463/Chimba-smart-/actions/runs/45651299497) and web/PWA [run 45651299459](https://github.com/Amos463/Chimba-smart-/actions/runs/45651299459) passed on `69e5b25`; Android build [run 45651643751](https://github.com/Amos463/Chimba-smart-/actions/runs/45651643751) passed on `0cc9c97`. Engine CI and release validation have not been rerun on this checkpoint. The first Android build failed because Java 17 could not compile source release 21; both Android workflows now use Java 21. |
 
 ## Geological processing
 
@@ -38,21 +46,22 @@ Status date: 2026-11-25. This describes the current code and verified evidence, 
 
 Latest recorded current-turn runs:
 
-- Backend hosted integration/PostGIS/Redis suite on current checkpoint `4105339a197d9ae89d55f700d5e5ce89a28ce7ad`: 40 passed, 3 skipped, 5 warnings; migration through 0008, JS syntax and dependency audit steps passed.
+- Backend hosted integration/PostGIS/Redis suite and migration checks on commit `01d2ea2`: passed; hosted PWA Playwright acceptance passed in the same [Backend CI run 45648096883](https://github.com/Amos463/Chimba-smart-/actions/runs/45648096883). Web/PWA checks passed in [run 45648096960](https://github.com/Amos463/Chimba-smart-/actions/runs/45648096960).
 - Local backend suite after auth fixes on 2026-11-25: 38 passed, 5 skipped, 1 Starlette deprecation warning. Local `pip-audit -r backend/requirements.txt`: no known vulnerabilities.
 - Backend API-only suite on SQLite: 26 passed, 1 skipped, 1 warning; local Redis service was unavailable.
 - Focused engine suite: 4 passed, 1 warning.
 - Python compileall: passed.
 - Flutter analyze: passed with no issues; Flutter test: passed (one widget smoke test).
 - Fresh SQLite migrations through 0008 and Alembic metadata check: passed. Upgrade from 0007 preserved a user row and initialized `auth_version` to 0.
-- Android Gradle project configuration: passed with Java 17.
-- Workflow YAML syntax: all five workflows parsed. Current checkpoint runs: backend #45564145469 and release validation #45564145487 passed; the release publish job was skipped. Latest successful engine #45560541814, Android #45558488726 and web #45557089165 runs are on prior commits; manual dispatch returned HTTP 403.
+- Android build in GitHub Actions: passed on commit `0cc9c97`, including debug APK, testing-signed release APK and AAB creation, file checks, SHA-256 generation and artifact upload. Downloaded artifact `15040127397`; `sha256sum -c SHA256SUMS`: all three files OK.
+- Workflow YAML syntax: Android and release workflow YAML parsed after changes. Backend CI and web/PWA on commit `69e5b25`, Android on `0cc9c97`; Engine CI and release validation remain unverified on this checkpoint. Manual dispatch attempts were blocked by GitHub API integration-token responses (HTTP 403/500).
 - Docker Compose syntax: passed with disposable test-only secret values.
 - Live PostGIS migration test: 1 passed.
 - Live API login/project/sync push/pull and duplicate push: passed.
 - Live RQ trend2d execution and worker restart: passed; one invalid RQ 2.4 enqueue argument was found and fixed.
 - JavaScript syntax: NOT RUN locally; Node.js is unavailable.
-- Browser PWA E2E: NOT RUN.
+- Browser PWA E2E: PASS in [Backend CI run 45651299497](https://github.com/Amos463/Chimba-smart-/actions/runs/45651299497), including the offline/sync scenario and Capacitor server-URL bridge test (2 Playwright tests passed). Interrupted attachment upload and restore scenarios remain NOT RUN.
+- Capacitor Android hosted build: PASS in [run 45651643751](https://github.com/Amos463/Chimba-smart-/actions/runs/45651643751); native URL browser test passed in [web/PWA run 45651299459](https://github.com/Amos463/Chimba-smart-/actions/runs/45651299459). Artifact hashes are documented in `ANDROID_INSTALL.md`. No local Android/Gradle build was run. Real-device installation and field acceptance remain NOT RUN.
 - Live Redis suite: passed with disposable Redis.
 - Worker crash/restart: queue persistence plus restart execution passed for a job that was rejected by scientific validation.
 - Full backup/restore: PostgreSQL logical restore passed for project, record, jobs and audit counts; separate attachment marker restore passed. Complete application/PWA/Flutter attachment restore remains PARTIAL.

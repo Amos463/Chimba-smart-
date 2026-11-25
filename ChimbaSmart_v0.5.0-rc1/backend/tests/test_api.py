@@ -145,6 +145,8 @@ def test_multiple_primary_assays_are_not_silently_selected(ctx,client):
     d=client.get(f'/projects/{p}/analysis',headers=h).json()
     row=next(x for x in d['samples'] if x['sample_id']=='MULTI-1')
     assert row['grade'] is None and row['assay_status']=='conflicting_or_multiple_assays'
+    listed=client.get(f'/projects/{p}/samples',headers=h).json()['samples'][0]
+    assert listed['grade'] is None and listed['assay_status']=='conflicting_or_multiple_assays'
 
 def test_assay_qaqc_roles(ctx,client):
     h,p=ctx
@@ -162,12 +164,16 @@ def test_assay_qaqc_roles(ctx,client):
 def test_attachment_success_and_duplicate_is_idempotent(ctx,client):
     from PIL import Image
     import io
+    from pathlib import Path
     h,p=ctx
     s=rec(p,'sample',{'sample_id':'PHOTO-OK','sample_type':'rock_chip','lat':-3.1,'lon':32.2})
     assert st(push(client,h,s))==['accepted']
     b=io.BytesIO(); Image.new('RGB',(2,2),(255,0,0)).save(b,format='PNG'); payload=b.getvalue()
+    attachment_dir=Path(os.environ['ATTACHMENTS_DIR'])
+    before=set(attachment_dir.iterdir()) if attachment_dir.exists() else set()
     args={'data':{'project_id':p,'sample_id':'PHOTO-OK','sample_record_uuid':s['record_uuid']},'files':{'file':('sample.png',payload,'image/png')},'headers':h}
     first=client.post('/attachments',**args); assert first.status_code==201
+    assert set(attachment_dir.iterdir())-before
     second=client.post('/attachments',**args); assert second.status_code==201 and second.json().get('duplicate') is True
 
 
@@ -214,7 +220,140 @@ def test_assay_below_detection_requires_limit_and_is_not_grade(ctx,client):
     valid=rec(p,'assay',{'sample_id':'BDL','value_num':0.01,'unit':'g/t','below_detection':True,'detection_limit':0.02})
     assert st(push(client,h,valid))==['accepted']
     d=client.get(f'/projects/{p}/analysis?sample_type=soil',headers=h).json()
-    assert d['samples'][0]['grade'] is None
+    assert d['samples'][0]['grade']==0.01
+    assert d['samples'][0]['grade_basis']=='below_detection_half_dl'
+    assert d['processing_counts']['below_detection_imputed_count']==1
+    assert any('DL/2' in warning for warning in d['warnings'])
+
+
+def test_sample_list_shows_latest_assay_attachments_and_sync_fields(ctx,client):
+    from PIL import Image
+    import io
+    h,p=ctx
+    sample=rec(p,'sample',{'sample_id':'LIST-1','sample_type':'soil','lat':-3.1,'lon':32.2})
+    assert st(push(client,h,sample))==['accepted']
+    first=rec(p,'assay',{'sample_id':'LIST-1','value_num':1.2,'unit':'g/t','certificate_ref':'CERT-1'})
+    latest=rec(p,'assay',{'sample_id':'LIST-1','value_num':2.4,'unit':'g/t','certificate_ref':'CERT-2'})
+    assert set(st(push(client,h,first,latest)))=={'accepted'}
+    image=io.BytesIO()
+    Image.new('RGB',(2,2),(255,0,0)).save(image,format='PNG')
+    uploaded=client.post(
+        '/attachments',
+        data={'project_id':p,'sample_id':'LIST-1','sample_record_uuid':sample['record_uuid']},
+        files={'file':('list.png',image.getvalue(),'image/png')},headers=h,
+    )
+    assert uploaded.status_code==201
+    response=client.get(f'/projects/{p}/samples',headers=h)
+    assert response.status_code==200
+    row=response.json()['samples'][0]
+    assert row['sample_id']=='LIST-1'
+    assert row['latest_assay']['certificate_ref']=='CERT-2'
+    assert row['attachment_count']==1
+    assert row['sync_status']=='synced' and row['server_version']==1
+    assert row['qa_status']=='not_assessed'
+
+
+def test_sample_list_and_qa_waivers_are_project_isolated(ctx,client):
+    h,p=ctx
+    other_user=mkuser()
+    other_headers=hdr(client,other_user)
+    other_project=client.post('/projects',json={'name':'Other project'},headers=other_headers).json()['id']
+    assert client.get(f'/projects/{p}/samples',headers=other_headers).status_code==403
+    assert client.post(
+        f'/projects/{other_project}/qa/waivers',
+        json={'batch_id':'B1','reason':'Reviewed and approved'},headers=h,
+    ).status_code==403
+
+
+def test_qaqc_is_scoped_to_batch_and_warnings_reach_jobs(ctx,client):
+    h,p=ctx
+    records=[]
+    for i in range(4):
+        sample_id=f'GOOD-{i}'
+        records.extend([
+            rec(p,'sample',{'sample_id':sample_id,'sample_type':'rock_chip','lat':-3.0+i*.001,'lon':32.1+i*.001}),
+            rec(p,'assay',{'sample_id':sample_id,'value_num':float(i+1),'unit':'g/t','batch_id':'GOOD'}),
+        ])
+    records.extend([
+        rec(p,'sample',{'sample_id':'BAD-1','sample_type':'rock_chip','lat':-3.01,'lon':32.11}),
+        rec(p,'assay',{'sample_id':'BAD-1','value_num':5.0,'unit':'g/t','batch_id':'BAD'}),
+        rec(p,'sample',{'sample_id':'BLANK-1','sample_type':'rock_chip','lat':-3.02,'lon':32.12}),
+        rec(p,'assay',{'sample_id':'BLANK-1','value_num':1.0,'unit':'g/t','qa_role':'blank','detection_limit':0.01,'batch_id':'BAD'}),
+    ])
+    assert set(st(push(client,h,*records)))=={'accepted'}
+    analysis=client.get(f'/projects/{p}/analysis',headers=h).json()
+    grades={sample['sample_id']:sample['grade'] for sample in analysis['samples']}
+    assert grades['GOOD-0']==1.0 and grades['BAD-1'] is None
+    job=client.post('/jobs',json={'project_id':p,'engine':'trend2d','params':{'sample_type':'rock_chip'}},headers=h).json()
+    result=client.get(f"/jobs/{job['id']}",headers=h).json()
+    assert result['status']=='done'
+    assert result['result']['processing_counts']['qa_blocked_sample_count']>0
+    assert any('QA/QC imezuia' in warning for warning in result['warnings'])
+
+
+def test_qa_waiver_creation_revocation_and_hash_provenance(ctx,client):
+    from app.models import QAWaiver
+    h,p=ctx
+    records=[]
+    for i in range(4):
+        sample_id=f'WAIVE-{i}'
+        records.extend([
+            rec(p,'sample',{'sample_id':sample_id,'sample_type':'soil','lat':-3.0+i*.001,'lon':32.1+i*.001}),
+            rec(p,'assay',{'sample_id':sample_id,'value_num':float(i+1),'unit':'g/t','batch_id':'B-1'}),
+        ])
+    records.extend([
+        rec(p,'sample',{'sample_id':'WAIVE-BLANK','sample_type':'soil','lat':-3.01,'lon':32.11}),
+        rec(p,'assay',{'sample_id':'WAIVE-BLANK','value_num':1.0,'unit':'g/t','qa_role':'blank','detection_limit':0.01,'batch_id':'B-1'}),
+    ])
+    assert set(st(push(client,h,*records)))=={'accepted'}
+    before=client.get(f'/projects/{p}/analysis',headers=h).json()
+    assert next(row for row in before['samples'] if row['sample_id']=='WAIVE-0')['grade'] is None
+    assert client.post(
+        f'/projects/{p}/qa/waivers',json={'batch_id':'B-1','reason':'   too short   '},headers=h
+    ).status_code==422
+    reviewer=mkuser()
+    assert client.post(f'/projects/{p}/members',json={'username':reviewer,'role':'geologist'},headers=h).status_code==201
+    assert client.post(
+        f'/projects/{p}/qa/waivers',json={'batch_id':'B-1','reason':'Reviewed batch evidence'},headers=hdr(client,reviewer)
+    ).status_code==403
+    created=client.post(
+        f'/projects/{p}/qa/waivers',json={'batch_id':' b-1 ','reason':'Reviewed batch evidence'},headers=h
+    )
+    assert created.status_code==201
+    waiver=created.json()
+    assert waiver['batch_id']=='B-1' and waiver['created_by_username']
+    waived=client.get(f'/projects/{p}/analysis',headers=h).json()
+    waived_sample=next(row for row in waived['samples'] if row['sample_id']=='WAIVE-0')
+    waived_control=next(row for row in waived['samples'] if row['sample_id']=='WAIVE-BLANK')
+    assert waived['input_hash']!=before['input_hash']
+    assert waived_sample['grade']==1.0 and waived_sample['qa_status']=='waived'
+    assert waived_control['grade'] is None and waived_control['qa_status']=='blocked'
+    assert any('Waiver ya QA/QC' in warning for warning in waived['warnings'])
+    revoked=client.delete(f"/projects/{p}/qa/waivers/{waiver['id']}",headers=h)
+    assert revoked.status_code==200
+    restored=client.get(f'/projects/{p}/analysis',headers=h).json()
+    assert restored['input_hash'] not in {before['input_hash'],waived['input_hash']}
+    assert next(row for row in restored['samples'] if row['sample_id']=='WAIVE-0')['grade'] is None
+    db=SessionLocal()
+    try:
+        stored=db.get(QAWaiver,waiver['id'])
+        assert stored and stored.revoked_at and stored.revoked_by
+        assert stored.created_by_username==db.get(User,stored.created_by).username
+    finally:
+        db.close()
+
+
+def test_below_detection_conflicting_limits_are_not_imputed(ctx,client):
+    h,p=ctx
+    sample=rec(p,'sample',{'sample_id':'BDL-CONFLICT','sample_type':'soil','lat':-3.1,'lon':32.2})
+    assays=[
+        rec(p,'assay',{'sample_id':'BDL-CONFLICT','value_num':0.01,'unit':'g/t','below_detection':True,'detection_limit':0.02}),
+        rec(p,'assay',{'sample_id':'BDL-CONFLICT','value_num':0.02,'unit':'g/t','below_detection':True,'detection_limit':0.04}),
+    ]
+    assert st(push(client,h,sample,*assays))==['accepted','accepted','accepted']
+    result=client.get(f'/projects/{p}/analysis?sample_type=soil',headers=h).json()
+    row=result['samples'][0]
+    assert row['grade'] is None and row['assay_status']=='conflicting_detection_limits'
 
 
 def test_one_username_ip_lock_does_not_lock_other_user(client):

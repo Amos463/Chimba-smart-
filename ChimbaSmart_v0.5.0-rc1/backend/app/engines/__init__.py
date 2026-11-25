@@ -16,6 +16,12 @@ class Engine:
 def _graded(ds, sample_type=None):
     return [s for s in ds['samples'] if s.get('grade') is not None and s.get('assay_unit')=='g/t' and (sample_type is None or s.get('kind')==sample_type)]
 
+def _blocked_count(ds,sample_type=None):
+    counts=ds.get('processing_counts',{})
+    if sample_type:
+        return counts.get('qa_blocked_sample_counts_by_type',{}).get(sample_type,0)
+    return counts.get('qa_blocked_sample_count',0)
+
 def _select_type(ds, sample_type=None):
     rows=_graded(ds)
     types=sorted({r.get('kind') for r in rows if r.get('kind')})
@@ -32,10 +38,6 @@ def _select_type(ds, sample_type=None):
     chosen=winners[0]
     return chosen, _graded(ds,chosen), types, False
 
-def _qa_errors(ds):
-    # No controls supplied is a warning, not an invented pass. Any failing or unresolved control blocks grade engines.
-    return [f"{q.get('sample_id')} ({q.get('role')}: {q.get('status')})" for q in ds.get('qa_checks',[]) if q.get('role') in ('blank','standard','duplicate') and q.get('status')!='pass']
-
 def quick(ds, sample_type=None):
     chosen, rows, types, ambiguous = _select_type(ds,sample_type)
     if ambiguous:
@@ -44,11 +46,11 @@ def quick(ds, sample_type=None):
         tr=geo.trend([(x['e'],x['n']) for x in rows],[x['grade'] for x in rows])
     tr['sample_type']=chosen
     tr['available_sample_types']=types
-    tr['qa_errors']=_qa_errors(ds)
-    if tr['qa_errors']:
-        tr.update({'ok':False,'msg':'Uchambuzi umesimamishwa: QA/QC ina hitilafu au haijakamilika.','qa_blocked':True})
-        tr.pop('direction',None)
-    elif tr.get('ok'):
+    tr['qa_blocked_sample_count']=ds.get('processing_counts',{}).get('qa_blocked_sample_count',0)
+    tr['qa_blocked_sample_count_for_type']=_blocked_count(ds,chosen)
+    tr['below_detection_imputed_count']=ds.get('processing_counts',{}).get('below_detection_imputed_count',0)
+    tr['warnings']=list(ds.get('processing_warnings',[]))
+    if tr.get('ok'):
         tr['direction']=geo.compass(tr['bearing'])
     if any(x.get('assay_status')=='conflicting_or_multiple_assays' for x in ds['samples']):
         tr['assay_warning']='Sampuli zenye assay nyingi zinazotofautiana zimeondolewa kwenye trend; chagua/idhinisha assay kuu.'
@@ -65,14 +67,15 @@ class Trend2D(Engine):
     name='trend2d'; version='1.3'; adapter_ready=True
     def validate(self,ds):
         errors=[]
-        if _qa_errors(ds): errors.append('QA/QC imefail au haijakamilika; rekebisha batch kabla ya trend')
         chosen,rows,types,ambiguous=_select_type(ds,ds.get('_sample_type'))
         if ambiguous: errors.append('Chagua sample_type; aina kadhaa zina idadi sawa')
+        if _blocked_count(ds,chosen) and len(rows)<4:
+            errors.append('QA/QC ya batch husika imezuia baadhi ya grades; chagua sampuli zinazostahili au rekebisha QA/QC')
         if len(rows)<4: errors.append('Zinahitajika sampuli huru 4+ za aina moja zenye assay ya g/t')
         return errors
     def run(self,ds,p):
         tr=quick(ds,p.get('sample_type'))[0]
-        return {'trend':tr,'crs':ds['crs'],'input_hash':ds['input_hash'],'scope':'surface_samples_only'}
+        return {'trend':tr,'crs':ds['crs'],'input_hash':ds['input_hash'],'scope':'surface_samples_only','processing_counts':ds.get('processing_counts',{}),'warnings':list(self.warnings)+ds.get('processing_warnings',[])}
 
 class OrientationMean(Engine):
     name='orientation'; version='1.1'; adapter_ready=True
@@ -84,9 +87,10 @@ class IDW(Engine):
     warnings=['IDW ni interpolation ya uchunguzi; si kriging wala makadirio ya rasilimali.']
     def validate(self,ds):
         errors=[]
-        if _qa_errors(ds): errors.append('QA/QC imefail au haijakamilika; rekebisha batch kabla ya IDW')
         chosen,rows,types,ambiguous=_select_type(ds,ds.get('_sample_type'))
         if ambiguous: errors.append('Chagua sample_type; aina kadhaa zina idadi sawa')
+        if _blocked_count(ds,chosen) and len(rows)<3:
+            errors.append('QA/QC ya batch husika imezuia baadhi ya grades; chagua sampuli zinazostahili au rekebisha QA/QC')
         if len(rows)<3: errors.append('IDW inahitaji sampuli 3+ za aina moja zenye assay ya g/t')
         if len({(r['e'],r['n']) for r in rows})<3: errors.append('IDW inahitaji maeneo 3 tofauti')
         return errors
@@ -106,7 +110,7 @@ class IDW(Engine):
                     w=1/np.maximum(d,1e-9)**power; value=float(np.sum(w*z)/np.sum(w))
                 row.append(round(value,6))
             out.append(row)
-        return {'method':'IDW','power':power,'sample_type':sample_type,'crs':ds['crs'],'x':xs.tolist(),'y':ys.tolist(),'values':out,'sample_count':len(pts),'input_hash':ds['input_hash'],'warning':'Grid ni interpolation ya uchunguzi tu.'}
+        return {'method':'IDW','power':power,'sample_type':sample_type,'crs':ds['crs'],'x':xs.tolist(),'y':ys.tolist(),'values':out,'sample_count':len(pts),'input_hash':ds['input_hash'],'processing_counts':ds.get('processing_counts',{}),'warnings':list(self.warnings)+ds.get('processing_warnings',[])}
 
 class DownholeComposite(Engine):
     name='downhole_composite'; version='1.0'; adapter_ready=True
@@ -142,9 +146,10 @@ class PyKrige(Engine):
     warnings=['Kriging inahitaji uchaguzi na uthibitishaji wa variogram; matokeo si resource estimate.']
     def validate(self,ds):
         errors=[]
-        if _qa_errors(ds): errors.append('QA/QC imefail au haijakamilika; rekebisha batch kabla ya kriging')
         chosen,rows,types,ambiguous=_select_type(ds,ds.get('_sample_type'))
         if ambiguous: errors.append('Chagua sample_type; aina kadhaa zina idadi sawa')
+        if _blocked_count(ds,chosen) and len(rows)<5:
+            errors.append('QA/QC ya batch husika imezuia baadhi ya grades; chagua sampuli zinazostahili au rekebisha QA/QC')
         if len(rows)<5: errors.append('Ordinary kriging inahitaji sampuli 5+ za aina moja zenye assay ya g/t')
         if len({(r['e'],r['n']) for r in rows})<5: errors.append('Kriging inahitaji maeneo 5 tofauti')
         return errors
@@ -159,7 +164,7 @@ class PyKrige(Engine):
         if not 5<=size<=100: raise ValueError('grid_size 5..100')
         ok=OrdinaryKriging(x,y,z,variogram_model=model,verbose=False,enable_plotting=False)
         gx=np.linspace(min(x),max(x),size); gy=np.linspace(min(y),max(y),size); zgrid,var=ok.execute('grid',gx,gy)
-        return {'method':'ordinary_kriging','sample_type':sample_type,'variogram_model':model,'crs':ds['crs'],'x':gx.tolist(),'y':gy.tolist(),'values':np.asarray(zgrid).tolist(),'variance':np.asarray(var).tolist(),'sample_count':len(pts),'input_hash':ds['input_hash']}
+        return {'method':'ordinary_kriging','sample_type':sample_type,'variogram_model':model,'crs':ds['crs'],'x':gx.tolist(),'y':gy.tolist(),'values':np.asarray(zgrid).tolist(),'variance':np.asarray(var).tolist(),'sample_count':len(pts),'input_hash':ds['input_hash'],'processing_counts':ds.get('processing_counts',{}),'warnings':list(self.warnings)+ds.get('processing_warnings',[])}
 
 class GemPyModel(Engine):
     name='gempy'; version='2026.0.3'; requires='gempy'; adapter_ready=True

@@ -1,5 +1,9 @@
-import os,tempfile,uuid,pytest
-os.environ['DATABASE_URL']=f'sqlite:///{tempfile.mkdtemp()}/t.db'; os.environ['JWT_SECRET']='t'*40
+import atexit,os,shutil,tempfile,uuid,pytest
+TEST_STORAGE_DIR=tempfile.mkdtemp(prefix='chimbasmart-tests-')
+atexit.register(shutil.rmtree,TEST_STORAGE_DIR,ignore_errors=True)
+os.environ['DATABASE_URL']=f'sqlite:///{TEST_STORAGE_DIR}/t.db'
+os.environ['ATTACHMENTS_DIR']=os.path.join(TEST_STORAGE_DIR,'attachments')
+os.environ['JWT_SECRET']='test-only-chimbasmart-jwt-secret'
 from fastapi.testclient import TestClient
 from app.main import app
 from app.db import SessionLocal

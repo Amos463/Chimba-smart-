@@ -145,3 +145,17 @@ class AuditEvent(Base):
     request_id:Mapped[str|None]=S(100,nullable=True)
     details_json:Mapped[str|None]=mapped_column(Text,nullable=True)
     created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=utcnow)
+
+
+class QAWaiver(Base):
+    __tablename__='qa_waivers'
+    __table_args__=(Index('ix_qa_waivers_active','project_id','revoked_at'),)
+    id:Mapped[str]=S(primary_key=True)
+    project_id:Mapped[str]=S(36,index=True)
+    batch_id:Mapped[str|None]=S(100,nullable=True)
+    reason:Mapped[str]=mapped_column(Text)
+    created_by:Mapped[str]=S(36)
+    created_by_username:Mapped[str]=S(100)
+    created_at:Mapped[datetime]=mapped_column(DateTime(timezone=True),default=utcnow)
+    revoked_at:Mapped[datetime|None]=mapped_column(DateTime(timezone=True),nullable=True)
+    revoked_by:Mapped[str|None]=S(36,nullable=True)

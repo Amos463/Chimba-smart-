@@ -79,9 +79,90 @@ jobs:
         run: |
           alembic upgrade head
           alembic check
+      - name: Upgrade from 0008 preserves existing user
+        working-directory: ChimbaSmart_v0.5.0-rc1/backend
+        run: |
+          export DATABASE_URL=sqlite:////tmp/chimbasmart-upgrade-test.db
+          export AUTO_CREATE_TABLES=0
+          alembic upgrade 0008_auth_version
+          python - <<'PY'
+          import sqlite3
+          connection = sqlite3.connect('/tmp/chimbasmart-upgrade-test.db')
+          connection.execute(
+              "INSERT INTO users (id, username, password_hash, role, auth_version) VALUES (?, ?, ?, ?, ?)",
+              ('test-only-user-id', 'test-only-upgrade-user', 'test-only-hash', 'field_user', 0),
+          )
+          connection.commit()
+          connection.close()
+          PY
+          alembic upgrade head
+          python - <<'PY'
+          import sqlite3
+          connection = sqlite3.connect('/tmp/chimbasmart-upgrade-test.db')
+          assert connection.execute(
+              "SELECT username FROM users WHERE id='test-only-user-id'"
+          ).fetchone() == ('test-only-upgrade-user',)
+          assert connection.execute(
+              "SELECT name FROM sqlite_master WHERE type='table' AND name='qa_waivers'"
+          ).fetchone() == ('qa_waivers',)
+          connection.close()
+          PY
       - name: Frontend JavaScript syntax
         run: |
           node --check ChimbaSmart_v0.5.0-rc1/frontend/app.js
+          node --check ChimbaSmart_v0.5.0-rc1/frontend/field-workflows.js
           node --check ChimbaSmart_v0.5.0-rc1/frontend/sw.js
       - name: Dependency vulnerability audit
         run: pip-audit -r ChimbaSmart_v0.5.0-rc1/backend/requirements.txt
+  pwa-e2e:
+    runs-on: ubuntu-24.04
+    env:
+      DATABASE_URL: sqlite:////tmp/chimbasmart-pwa-e2e.db
+      ATTACHMENTS_DIR: /tmp/chimbasmart-pwa-e2e-attachments
+      JWT_SECRET: test-only-pwa-e2e-secret-not-for-production-123456
+      E2E_USER: juma
+      E2E_PASSWORD: test-only-pwa-password-123
+      PWA_BASE_URL: http://127.0.0.1:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install backend and browser test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r ChimbaSmart_v0.5.0-rc1/backend/requirements.txt
+          mkdir -p "$RUNNER_TEMP/chimba-playwright"
+          cd "$RUNNER_TEMP/chimba-playwright"
+          npm init -y
+          npm install --save-exact @playwright/test@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run PWA offline and synchronization acceptance
+        run: |
+          set -eu
+          mkdir -p "$ATTACHMENTS_DIR"
+          cd ChimbaSmart_v0.5.0-rc1/backend
+          python -m app.cli create-user "$E2E_USER" "$E2E_PASSWORD" --role admin
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/pwa-api.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid"; wait "$api_pid" || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS "$PWA_BASE_URL/ready" > /dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS "$PWA_BASE_URL/ready"
+          cd "$GITHUB_WORKSPACE"
+          NODE_PATH="$RUNNER_TEMP/chimba-playwright/node_modules" \
+            "$RUNNER_TEMP/chimba-playwright/node_modules/.bin/playwright" \
+            test ChimbaSmart_v0.5.0-rc1/frontend/e2e/pwa.spec.cjs --workers=1 --reporter=list
+      - name: Upload Playwright failure context
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwa-e2e-context-${{ github.run_number }}
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore

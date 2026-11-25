@@ -36,7 +36,7 @@ services:
       db: {condition: service_healthy}
   engine-worker:
     build: {context: ., dockerfile: backend/Dockerfile.engines}
-    command: ["sh","-c","rq worker chimbasmart-engines --url \"$REDIS_URL\""]
+    command: ["sh","-c","rq worker chimbasmart-engines --url \"$$REDIS_URL\""]
     environment:
       ENV: prod
       DATABASE_URL: postgresql+psycopg://chimba:${POSTGRES_PASSWORD}@db:5432/chimbasmart

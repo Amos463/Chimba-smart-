@@ -50,25 +50,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-node@v4
         with:
-          distribution: temurin
-          java-version: "17"
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: "3.38.5"
-          channel: stable
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/package-lock.json
       - name: Backend release gates
         run: |
           python -m pip install -r ChimbaSmart_v0.5.0-rc1/backend/requirements.txt
           python -m compileall -q ChimbaSmart_v0.5.0-rc1/backend/app ChimbaSmart_v0.5.0-rc1/backend/migrations ChimbaSmart_v0.5.0-rc1/backend/tests
           (cd ChimbaSmart_v0.5.0-rc1/backend && python -m pytest -q)
-      - name: Flutter release gates
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
+      - name: Capacitor packaging gate
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
         run: |
-          flutter pub get
-          flutter analyze
-          flutter test
+          npm ci
+          npm run cap:sync
       - name: Confirm owner release gates
         if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish_release == true
         env:
@@ -93,14 +89,17 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
+          cache: gradle
+          cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android/**/*.gradle*
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
-      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+      - uses: actions/setup-node@v4
         with:
-          flutter-version: "3.38.5"
-          channel: stable
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/package-lock.json
       - name: Require owner signing secrets
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -114,26 +113,28 @@ jobs:
           }
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/chimbasmart-release.jks"
           chmod 600 "$RUNNER_TEMP/chimbasmart-release.jks"
-      - name: Build signed release APK and AAB
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
+      - name: Build signed Capacitor release APK and AAB
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/chimbasmart-release.jks
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          flutter pub get
-          flutter build apk --release
-          flutter build appbundle --release
-          sha256sum build/app/outputs/flutter-apk/app-release.apk \
-            build/app/outputs/bundle/release/app-release.aab \
-            > build/release-checksums.sha256
+          npm ci
+          npm run cap:sync
+          cd android
+          ./gradlew --no-daemon assembleRelease bundleRelease
+          mkdir -p ../release-artifacts
+          cp app/build/outputs/apk/release/app-release.apk ../release-artifacts/chimbasmart-production.apk
+          cp app/build/outputs/bundle/release/app-release.aab ../release-artifacts/chimbasmart-production.aab
+          cd ../release-artifacts
+          sha256sum chimbasmart-production.apk chimbasmart-production.aab > SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: chimbasmart-production-${{ github.ref_name }}
           path: |
-            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-release.apk
-            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/bundle/release/app-release.aab
+            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/
           retention-days: 7
           if-no-files-found: error
       - name: Publish GitHub release
@@ -141,7 +142,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-release.apk
-            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/bundle/release/app-release.aab
-            ChimbaSmart_v0.5.0-rc1/mobile/build/release-checksums.sha256
+            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/chimbasmart-production.apk
+            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/chimbasmart-production.aab
+            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/SHA256SUMS
           generate_release_notes: true
