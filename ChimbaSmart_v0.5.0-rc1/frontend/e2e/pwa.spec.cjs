@@ -47,12 +47,6 @@ async function capture(page, id, index, assay = '') {
 }
 
 async function goHome(page) {
-  const state = () => page.evaluate(() => ({
-    activeScreens: [...document.querySelectorAll('section.on')].map(element => element.id),
-    backHidden: document.querySelector('#back').hidden,
-    history: [...hist],
-  }));
-  console.log('goHome start:', JSON.stringify(await state()));
   for (let attempt = 0; attempt < 10; attempt++) {
     const activeScreens = await page.locator('section.on').evaluateAll(elements => elements.map(element => element.id));
     if (activeScreens.length === 1 && activeScreens[0] === 'home') return;
@@ -80,6 +74,7 @@ async function addLaterAssay(page, id, value) {
   await page.locator('#assayMethod').fill('Fire assay');
   await page.locator('#assayBatch').fill('PILOT-1');
   await page.locator('#saveAssay').click();
+  await expect(page.locator('#sampleInfo')).toContainText(`${value} g/t`, { timeout: 20_000 });
 }
 
 async function serverSamples(page) {
