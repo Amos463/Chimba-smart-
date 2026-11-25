@@ -13,6 +13,7 @@ const png = Buffer.from(
 test.setTimeout(240_000);
 
 async function login(page) {
+  page.setDefaultTimeout(15_000);
   await page.goto(baseURL);
   await page.locator('#ph').fill(username);
   await page.locator('#pin').fill(password);
@@ -45,7 +46,12 @@ async function capture(page, id, index, assay = '') {
 }
 
 async function goHome(page) {
-  while (await page.locator('#back').isVisible()) await page.locator('#back').click();
+  for (let attempt = 0; attempt < 10; attempt++) {
+    if (await page.locator('#home').evaluate(element => element.classList.contains('on'))) break;
+    await expect(page.locator('#back')).toBeVisible();
+    await page.locator('#back').click();
+  }
+  await expect(page.locator('#home')).toHaveClass(/on/);
 }
 
 async function addLaterAssay(page, id, value) {

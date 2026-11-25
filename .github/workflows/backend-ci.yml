@@ -158,3 +158,11 @@ jobs:
           NODE_PATH="$RUNNER_TEMP/chimba-playwright/node_modules" \
             "$RUNNER_TEMP/chimba-playwright/node_modules/.bin/playwright" \
             test ChimbaSmart_v0.5.0-rc1/frontend/e2e/pwa.spec.cjs --workers=1 --reporter=list
+      - name: Upload Playwright failure context
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwa-e2e-context-${{ github.run_number }}
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
