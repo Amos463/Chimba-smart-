@@ -11,6 +11,7 @@ const png = Buffer.from(
 );
 
 test.setTimeout(240_000);
+let acceptancePage;
 
 async function login(page) {
   page.setDefaultTimeout(15_000);
@@ -46,6 +47,12 @@ async function capture(page, id, index, assay = '') {
 }
 
 async function goHome(page) {
+  const state = () => page.evaluate(() => ({
+    activeScreens: [...document.querySelectorAll('section.on')].map(element => element.id),
+    backHidden: document.querySelector('#back').hidden,
+    history: [...hist],
+  }));
+  console.log('goHome start:', JSON.stringify(await state()));
   for (let attempt = 0; attempt < 10; attempt++) {
     const activeScreens = await page.locator('section.on').evaluateAll(elements => elements.map(element => element.id));
     if (activeScreens.length === 1 && activeScreens[0] === 'home') return;
@@ -56,9 +63,9 @@ async function goHome(page) {
   throw new Error(`Expected home screen; active screens: ${activeScreens.join(', ') || 'none'}`);
 }
 
-test.afterEach(async ({ page }, testInfo) => {
+test.afterEach(async ({}, testInfo) => {
   if (testInfo.status !== testInfo.expectedStatus) {
-    await page.screenshot({ path: testInfo.outputPath('failure.png'), fullPage: true });
+    await acceptancePage.screenshot({ path: testInfo.outputPath('failure.png'), fullPage: true });
   }
 });
 
@@ -103,6 +110,7 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
     permissions: ['geolocation'],
   });
   const page = await context.newPage();
+  acceptancePage = page;
   await login(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
 
