@@ -310,7 +310,7 @@ def pdf(pid:str,user:User=Depends(current_user),db:Session=Depends(get_db)):
     return Response(data,media_type='application/pdf',headers={'Content-Disposition':'inline; filename=ripoti.pdf'})
 @app.post('/attachments',status_code=201)
 async def upload_attachment(project_id:str=Form(...),sample_id:str=Form(...),sample_record_uuid:str=Form(...),file:UploadFile=File(...),user:User=Depends(current_user),db:Session=Depends(get_db)):
-    need_member(db,user,project_id)
+    require_permission(db,user,project_id,'update')
     sid=sample_id.strip().upper()
     if not db.query(Sample).filter_by(project_id=project_id,sample_id=sid,record_uuid=sample_record_uuid).first():
         raise HTTPException(404,'Rekodi husika ya sampuli haijafika kwenye seva bado')

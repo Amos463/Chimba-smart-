@@ -19,7 +19,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:8000}"
     volumes: [attachments_data:/app/data/attachments]
-    ports: ["8000:8000"]
+    ports: ["127.0.0.1:8000:8000"]
     depends_on: {db: {condition: service_healthy}}
   worker:
     build: {context: ., dockerfile: backend/Dockerfile}

@@ -37,6 +37,7 @@ Build locally with `docker build -f backend/Dockerfile.engines -t chimbasmart-en
 ## Operational requirements
 
 - Terminate TLS at a maintained HTTPS reverse proxy and enforce secure forwarded headers.
+- The Compose API port is bound to `127.0.0.1:8000`; publish it only through the HTTPS reverse proxy. Do not change this to `0.0.0.0` in production.
 - Keep PostgreSQL and Redis on private networks; apply authentication, ACLs, TLS and firewall rules.
 - Configure persistent, encrypted attachment storage and tested database/attachment backups.
 - Configure monitoring for API health, worker queue depth, failed jobs, storage, database and Redis.

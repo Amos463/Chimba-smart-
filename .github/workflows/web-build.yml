@@ -3,13 +3,13 @@ name: Flutter web and PWA checks
 on:
   push:
     paths:
-      - "mobile/**"
-      - "frontend/**"
+      - "ChimbaSmart_v0.5.0-rc1/mobile/**"
+      - "ChimbaSmart_v0.5.0-rc1/frontend/**"
       - ".github/workflows/web-build.yml"
   pull_request:
     paths:
-      - "mobile/**"
-      - "frontend/**"
+      - "ChimbaSmart_v0.5.0-rc1/mobile/**"
+      - "ChimbaSmart_v0.5.0-rc1/frontend/**"
       - ".github/workflows/web-build.yml"
   workflow_dispatch:
 
@@ -28,16 +28,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: "3.38.5"
           channel: stable
       - name: PWA JavaScript syntax
         run: |
-          node --check frontend/app.js
-          node --check frontend/sw.js
+          node --check ChimbaSmart_v0.5.0-rc1/frontend/app.js
+          node --check ChimbaSmart_v0.5.0-rc1/frontend/sw.js
       - name: Build Flutter web
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: |
           flutter pub get
           flutter analyze
@@ -47,6 +47,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: chimbasmart-web-${{ github.run_number }}
-          path: mobile/build/web/
+          path: ChimbaSmart_v0.5.0-rc1/mobile/build/web/
           retention-days: 7
           if-no-files-found: error

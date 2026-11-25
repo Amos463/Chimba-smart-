@@ -3,11 +3,11 @@ name: Android testing builds
 on:
   push:
     paths:
-      - "mobile/**"
+      - "ChimbaSmart_v0.5.0-rc1/mobile/**"
       - ".github/workflows/android-build.yml"
   pull_request:
     paths:
-      - "mobile/**"
+      - "ChimbaSmart_v0.5.0-rc1/mobile/**"
       - ".github/workflows/android-build.yml"
   workflow_dispatch:
 
@@ -28,29 +28,29 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: "3.38.5"
           channel: stable
       - name: Resolve Dart packages
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: flutter pub get
       - name: Analyze and test
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: |
           flutter analyze
           flutter test
       - name: Build debug APK
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: flutter build apk --debug
       - name: Build release APK testing artifact
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: flutter build apk --release
       - name: Build release AAB testing artifact
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: flutter build appbundle --release
       - name: Verify and hash artifacts
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: |
           test -s build/app/outputs/flutter-apk/app-debug.apk
           test -s build/app/outputs/flutter-apk/app-release.apk
@@ -62,8 +62,8 @@ jobs:
         with:
           name: chimbasmart-android-testing-${{ github.run_number }}
           path: |
-            mobile/build/app/outputs/flutter-apk/app-debug.apk
-            mobile/build/app/outputs/flutter-apk/app-release.apk
-            mobile/build/app/outputs/bundle/release/app-release.aab
+            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-debug.apk
+            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-release.apk
+            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
           if-no-files-found: error

@@ -105,6 +105,19 @@ def test_attachment_requires_valid_sample_and_type(ctx,client):
     assert bad.status_code==415
 
 
+def test_read_only_project_member_cannot_upload_attachment(ctx,client):
+    h,p=ctx
+    reader=mkuser()
+    assert client.post(f'/projects/{p}/members',json={'username':reader,'role':'read_only'},headers=h).status_code==201
+    response=client.post(
+        '/attachments',
+        data={'project_id':p,'sample_id':'PHOTO-1','sample_record_uuid':str(uuid.uuid4())},
+        files={'file':('photo.png',b'not-an-image','image/png')},
+        headers=hdr(client,reader),
+    )
+    assert response.status_code==403
+
+
 def test_downhole_composite_is_length_weighted(ctx,client):
     from app.engines import ENGINES
     from app.db import SessionLocal

@@ -52,17 +52,17 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: "3.38.5"
           channel: stable
       - name: Backend release gates
         run: |
-          python -m pip install -r backend/requirements.txt
-          python -m compileall -q backend/app backend/migrations backend/tests
-          (cd backend && python -m pytest -q)
+          python -m pip install -r ChimbaSmart_v0.5.0-rc1/backend/requirements.txt
+          python -m compileall -q ChimbaSmart_v0.5.0-rc1/backend/app ChimbaSmart_v0.5.0-rc1/backend/migrations ChimbaSmart_v0.5.0-rc1/backend/tests
+          (cd ChimbaSmart_v0.5.0-rc1/backend && python -m pytest -q)
       - name: Flutter release gates
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         run: |
           flutter pub get
           flutter analyze
@@ -92,7 +92,7 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: android-actions/setup-android@v3
-      - uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
         with:
           flutter-version: "3.38.5"
           channel: stable
@@ -110,7 +110,7 @@ jobs:
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/chimbasmart-release.jks"
           chmod 600 "$RUNNER_TEMP/chimbasmart-release.jks"
       - name: Build signed release APK and AAB
-        working-directory: mobile
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/chimbasmart-release.jks
           ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
@@ -127,8 +127,8 @@ jobs:
         with:
           name: chimbasmart-production-${{ github.ref_name }}
           path: |
-            mobile/build/app/outputs/flutter-apk/app-release.apk
-            mobile/build/app/outputs/bundle/release/app-release.aab
+            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-release.apk
+            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/bundle/release/app-release.aab
           retention-days: 7
           if-no-files-found: error
       - name: Publish GitHub release
@@ -136,7 +136,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            mobile/build/app/outputs/flutter-apk/app-release.apk
-            mobile/build/app/outputs/bundle/release/app-release.aab
-            mobile/build/release-checksums.sha256
+            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/flutter-apk/app-release.apk
+            ChimbaSmart_v0.5.0-rc1/mobile/build/app/outputs/bundle/release/app-release.aab
+            ChimbaSmart_v0.5.0-rc1/mobile/build/release-checksums.sha256
           generate_release_notes: true

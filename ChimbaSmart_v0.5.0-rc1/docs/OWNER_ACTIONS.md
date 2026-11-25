@@ -13,3 +13,6 @@ The following require owner or external action:
 9. Perform supervised field pilot and geological/professional review.
 10. Approve public HTTPS deployment and disaster-recovery schedule.
 11. Configure GitHub repository variables/secrets, branch protection, required status checks and `COMMERCIAL_RELEASE_GATES_PASSED` only after external gates have evidence.
+12. If GitHub still does not discover the root `.github/workflows/*.yml` files, review Actions settings and grant the operator token Actions read/write scope; workflow dispatch and repository Actions settings were unavailable to the prior integration token.
+13. Provide HTTPS reverse proxy/domain configuration, external monitoring and alerting. The Compose API now binds only to localhost.
+14. Approve an attachment write-role policy and confirm whether project members with `create` but not `update` should be permitted to upload photos; current route requires `update`.

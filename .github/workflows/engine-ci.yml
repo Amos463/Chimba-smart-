@@ -6,19 +6,19 @@ on:
     - cron: "23 4 * * 1"
   push:
     paths:
-      - "backend/app/engines/**"
-      - "backend/requirements*.txt"
-      - "backend/Dockerfile.engines"
-      - "backend/tests/test_optional_engines.py"
-      - "docker-compose.yml"
+      - "ChimbaSmart_v0.5.0-rc1/backend/app/engines/**"
+      - "ChimbaSmart_v0.5.0-rc1/backend/requirements*.txt"
+      - "ChimbaSmart_v0.5.0-rc1/backend/Dockerfile.engines"
+      - "ChimbaSmart_v0.5.0-rc1/backend/tests/test_optional_engines.py"
+      - "ChimbaSmart_v0.5.0-rc1/docker-compose.yml"
       - ".github/workflows/engine-ci.yml"
   pull_request:
     paths:
-      - "backend/app/engines/**"
-      - "backend/requirements*.txt"
-      - "backend/Dockerfile.engines"
-      - "backend/tests/test_optional_engines.py"
-      - "docker-compose.yml"
+      - "ChimbaSmart_v0.5.0-rc1/backend/app/engines/**"
+      - "ChimbaSmart_v0.5.0-rc1/backend/requirements*.txt"
+      - "ChimbaSmart_v0.5.0-rc1/backend/Dockerfile.engines"
+      - "ChimbaSmart_v0.5.0-rc1/backend/tests/test_optional_engines.py"
+      - "ChimbaSmart_v0.5.0-rc1/docker-compose.yml"
       - ".github/workflows/engine-ci.yml"
 
 permissions:
@@ -39,12 +39,12 @@ jobs:
       - name: Install isolated scientific adapter environment
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r backend/requirements.txt -r backend/requirements-open-source-engines.txt
+          python -m pip install -r ChimbaSmart_v0.5.0-rc1/backend/requirements.txt -r ChimbaSmart_v0.5.0-rc1/backend/requirements-open-source-engines.txt
       - name: Synthetic engine runtime tests
-        working-directory: backend
+        working-directory: ChimbaSmart_v0.5.0-rc1/backend
         run: python -m pytest -q tests/test_optional_engines.py
       - name: Engine registry status
-        working-directory: backend
+        working-directory: ChimbaSmart_v0.5.0-rc1/backend
         run: |
           python - <<'PY'
           from app.engines import ENGINES
@@ -54,4 +54,4 @@ jobs:
           assert not ENGINES["pygslib"].library_installed
           PY
       - name: Build isolated engine worker image
-        run: docker build --file backend/Dockerfile.engines --tag chimbasmart-engine-worker:ci .
+        run: docker build --file ChimbaSmart_v0.5.0-rc1/backend/Dockerfile.engines --tag chimbasmart-engine-worker:ci ChimbaSmart_v0.5.0-rc1
