@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-25 — Market pilot Phase 1 field workflow
+
+- Added project-scoped sample listing with the latest raw assay, QA status, attachment count, sync version and conflict-safe assay status.
+- Added audited, owner/admin-only QA/QC waiver creation and revocation; waiver history is included in processing input hashes.
+- Added initial DL/2 handling for compatible below-detection assays, batch-scoped QA blocking, processing counts and warnings. Policies are documented as requiring geologist review.
+- Added PWA project selection, searchable sample list, later assay/QA entry, below-detection validation, conflict resolution controls, access-token refresh/logout and queued scientific-analysis jobs.
+- Added tests for sample-list isolation/metadata, batch QA behavior, waivers, conflicting assays and below-detection handling. Browser E2E is not yet verified.
+
 ## 2026-11-25 — Market pilot Phase 0
 
 - Moved the Python-only devcontainer to the repository root, ignored generated/runtime files and untracked committed backend attachment copies while preserving local files.
