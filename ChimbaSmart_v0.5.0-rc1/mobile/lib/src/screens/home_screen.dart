@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/local_store.dart';
 import '../services/location_service.dart';
 import '../widgets/feature_tile.dart';
+import 'field_capture_screen.dart';
 class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @override State<HomeScreen> createState()=>_HomeScreenState(); }
 class _HomeScreenState extends State<HomeScreen> {
   int count=0; String sync='Data huhifadhiwa kwenye kifaa'; bool busy=false;
@@ -11,7 +12,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(()=>busy=true);
     try {
       final loc=await LocationService.getCurrentPosition();
-      await LocalStore.instance.addRecord(kind:'field_observation', payload:{
+      await LocalStore.instance.addRecord(projectId:'default-project',kind:'field_observation', payload:{
         'latitude':loc?.latitude,'longitude':loc?.longitude,'accuracy_m':loc?.accuracy,
         'captured_at':DateTime.now().toUtc().toIso8601String(),
         'note':'Rekodi ya majaribio — hariri kabla ya matumizi ya field'
@@ -32,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
       const SizedBox(height:16),
       Row(children:[Expanded(child:_metric('Rekodi kwenye kifaa','$count')),const SizedBox(width:10),Expanded(child:_metric('Hali ya mtandao','Offline-first'))]),
       const SizedBox(height:18),FilledButton.icon(onPressed:busy?null:_capture,icon:const Icon(Icons.add_location_alt),label:Text(busy?'Inahifadhi...':'Rekodi eneo la sasa')),
+      const SizedBox(height:10),OutlinedButton.icon(
+        onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const FieldCaptureScreen())),
+        icon:const Icon(Icons.assignment_add),label:const Text('Fomu ya sampuli, drillhole au muundo')),
       const SizedBox(height:20),const Text('MODULI ZA UKUSANYAJI',style:TextStyle(fontWeight:FontWeight.w800,letterSpacing:1)),
       const SizedBox(height:10),const Wrap(spacing:10,runSpacing:10,children:[
         FeatureTile(icon:Icons.landscape,title:'Miamba',detail:'Lithology, alteration, mineralization'),

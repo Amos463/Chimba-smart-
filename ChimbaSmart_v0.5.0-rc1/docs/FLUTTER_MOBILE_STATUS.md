@@ -4,15 +4,16 @@ Status date: 2026-11-25
 
 ## Current implementation
 
-The Flutter code is a small working foundation, not a finished field application:
+The Flutter code is an incremental field foundation, not a finished field application:
 
-- SQLite `records` and `sync_state` tables, schema version 1.
+- SQLite `records`, `sync_state` and `attachments` tables, schema migration version 2.
 - Local UUID records and pending/retry/synced/conflict/rejected sync states.
 - Basic token storage and login; pending push to `/sync/push`.
 - GPS permission/request helper.
-- One home screen with a generic local observation action.
+- A home screen, generic GPS local observation action and Kiswahili field-capture form for sample, assay, collar, interval and orientation records.
+- Project listing and server-pull methods exist in `SyncService`; foreground push is implemented.
 - Camera, durable attachment store, project selection/retrieval, pull cursor, token refresh/logout, conflict-resolution UI, CSV, drillhole, assay, QA/QC, map and reports are not fully integrated.
-- Test coverage currently consists of a home-widget test; no device/restart/network-loss acceptance tests exist.
+- Test coverage includes analyze and a home-widget test; no persistence, restart, attachment, or network-loss acceptance tests exist.
 
 ## Verified from prior checkpoint
 
