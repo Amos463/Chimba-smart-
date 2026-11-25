@@ -47,15 +47,24 @@ async function capture(page, id, index, assay = '') {
 
 async function goHome(page) {
   for (let attempt = 0; attempt < 10; attempt++) {
-    if (await page.locator('#home').evaluate(element => element.classList.contains('on'))) break;
+    const activeScreens = await page.locator('section.on').evaluateAll(elements => elements.map(element => element.id));
+    if (activeScreens.length === 1 && activeScreens[0] === 'home') return;
     await expect(page.locator('#back')).toBeVisible();
     await page.locator('#back').click();
   }
-  await expect(page.locator('#home')).toHaveClass(/on/);
+  const activeScreens = await page.locator('section.on').evaluateAll(elements => elements.map(element => element.id));
+  throw new Error(`Expected home screen; active screens: ${activeScreens.join(', ') || 'none'}`);
 }
+
+test.afterEach(async ({ page }, testInfo) => {
+  if (testInfo.status !== testInfo.expectedStatus) {
+    await page.screenshot({ path: testInfo.outputPath('failure.png'), fullPage: true });
+  }
+});
 
 async function addLaterAssay(page, id, value) {
   await goHome(page);
+  await expect(page.locator('#home')).toBeVisible();
   await page.locator('#home [data-go="mysamples"]').click();
   await page.locator(`[data-sample="${id}"]`).click();
   await page.locator('#assayValue').fill(String(value));
