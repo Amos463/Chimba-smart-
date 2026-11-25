@@ -103,6 +103,7 @@ test('PWA field capture, offline recovery, QA, jobs, refresh, conflicts and seco
   await expect(page.locator('[data-sample="PWA-02"]')).toBeVisible();
   await expect(page.locator('[data-sample="PWA-03"]')).toBeVisible();
 
+  await goHome(page);
   await context.setOffline(false);
   await page.locator('#retrySync').click();
   await expect.poll(async () => (await serverSamples(page)).some(sample => sample.sample_id === 'PWA-03'), { timeout: 30_000 }).toBe(true);
