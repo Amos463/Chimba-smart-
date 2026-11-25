@@ -68,6 +68,8 @@ async function addLaterAssay(page, id, value) {
   await expect(page.locator('#home')).toBeVisible();
   await page.locator('#home [data-go="mysamples"]').click();
   await page.locator(`[data-sample="${id}"]`).click();
+  await expect(page.locator('#sampleDetail')).toBeVisible();
+  await expect(page.locator('#detailHeading')).toHaveText(`Sampuli ${id}`);
   await page.locator('#assayValue').fill(String(value));
   await page.locator('#assayLab').fill('Pilot lab');
   await page.locator('#assayCertificate').fill(`CERT-${id}`);
