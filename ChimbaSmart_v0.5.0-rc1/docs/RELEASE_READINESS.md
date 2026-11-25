@@ -6,7 +6,7 @@ Baseline summary incorporates 2026-11-24 evidence; current-turn evidence is appe
 
 | Area | Status | Evidence |
 |---|---|---|
-| Backend/API tests | PASS | Latest full suite with disposable Redis: 35 passed, 1 skipped, 1 warning |
+| Backend/API tests | PARTIAL | Hosted backend integration/PostGIS/Redis suite: 34 passed, 3 skipped, 5 warnings; SQLite migration and JS checks passed. `pip-audit` failed on 127 advisories in five packages. Updated pins pass local audit; hosted rerun pending. |
 | Live PostgreSQL/PostGIS | PASS | Disposable PostGIS 16-3.4 migration test passed |
 | Alembic | PASS | 0001-0007 SQLite upgrade and metadata parity |
 | Redis/RQ | PARTIAL | Disposable live queue execution and stopped-worker restart passed; retry policy and isolated engine worker remain incomplete |
@@ -15,9 +15,9 @@ Baseline summary incorporates 2026-11-24 evidence; current-turn evidence is appe
 | Backup/restore | PARTIAL | PostgreSQL project/record/job/audit restore verified in a clean DB and attachment marker restored in a clean volume; complete application restoration remains pending |
 | PWA | PARTIAL | IndexedDB, push/pull, photos and conflict archive; browser smoke test pending |
 | Flutter | PARTIAL | Flutter 3.38.5 analyze and test passed on 2026-11-25; native local schema/API workflows remain incomplete |
-| GitHub Actions | BLOCKED | Five workflows are pushed and YAML-parsed, but GitHub API reports zero workflows and the current token cannot dispatch or read Actions permissions |
+| GitHub Actions | PARTIAL | Five workflows are discovered and ran. Engine/web/Android/release validation passed. Backend audit awaits verification after dependency updates; current integration token cannot read Actions settings or dispatch manually. |
 | Heavy engines | PARTIAL | GemPy, LoopStructural and pyGIMLi execute real synthetic tests; PyGSLIB blocked; full production geological validation pending |
-| Android APK/AAB | PARTIAL | Release APK/AAB built successfully; artifacts use the Android debug certificate until production signing is configured |
+| Android APK/AAB | PARTIAL | Hosted run 45558488726 built and uploaded debug APK, testing APK and AAB; hashes are recorded in `ANDROID_RELEASE_REPORT.md`. Production signing and device acceptance remain outstanding. |
 | Web build | PASS | Release web build completed under `mobile/build/web/` |
 | iOS | BLOCKED | macOS/Xcode/signing unavailable |
 | Commercial ready | BLOCKED | Security, native field integrations, worker recovery, complete restore and field validation remain incomplete |
@@ -72,7 +72,8 @@ Tanzania field validation is intentionally separate and remains blocked.
 - PyGSLIB is retained in the engine roadmap but remains BLOCKED until importable runtime and component-level license clearance.
 - Python 3.12 source build error: `ModuleNotFoundError: No module named 'numpy.distutils'`.
 - Official Linux CPython 3.8 Conda package import error after legacy GFortran pin: `undefined symbol: H5Pset_fapl_ros3`.
-- CI workflow files have been added but are NOT RUN until pushed and executed on GitHub Actions.
+- CI workflows are discovered. Backend run 45558488839 passed integration/migration/JS checks but failed its audit because of 127 advisories; dependency pins have since been patched locally and hosted verification remains pending.
+- Android run 45558488726 passed and uploaded testing artifacts; release validation run 45558488738 passed with publishing skipped on `main`.
 - Current-turn code/test evidence and requirement matrix: `FINAL_REPOSITORY_AUDIT.md`.
 - Actionable remaining work: `FINAL_IMPLEMENTATION_PLAN.md`.
 

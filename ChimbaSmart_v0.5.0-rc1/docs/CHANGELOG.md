@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-25 — Hosted workflow and dependency audit follow-up
+
+- Fixed backend Redis integration test to use the workflow-provided `REDIS_URL`.
+- Fixed Android SDK provisioning by pinning setup-android and explicitly installing platform-tools, Android 36 and build-tools 36.0.0.
+- Added main-branch release validation that cannot enter the signing/publishing job; the hosted validation run passed with publish skipped.
+- Built and uploaded debug APK, testing APK and AAB; recorded workflow artifact URL and SHA-256 checksums in `ANDROID_RELEASE_REPORT.md`.
+- `pip-audit` found 127 advisories in five stale dependency versions. Updated FastAPI/Starlette, PyJWT, pytest, python-multipart and Pillow pins; local tests and audit pass, and a hosted rerun is required.
+- Added the requested mobile, PWA, worker, restore, Android, security/license and market-readiness reports. Commercial release remains blocked.
+
 ## 2026-11-25 — Engineering audit and release-readiness checkpoint
 
 - Reconciled README, status, engine, deployment, license, mobile and release documentation with the verified implementation.

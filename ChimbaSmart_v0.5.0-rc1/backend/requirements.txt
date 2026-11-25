@@ -1,19 +1,19 @@
-fastapi==0.115.12
+fastapi==0.165.0
 uvicorn[standard]==0.34.2
 sqlalchemy==2.0.40
 psycopg[binary]==3.2.13
 alembic==1.15.2
 pydantic==2.11.4
-PyJWT==2.10.1
+PyJWT==2.15.1
 bcrypt==4.3.0
 numpy
 pyproj
 weasyprint
-pytest==8.3.5
+pytest==9.0.3
 httpx==0.28.1
 
-python-multipart==0.0.20
-Pillow==11.2.1
+python-multipart==0.0.34
+Pillow==13.0.0
 
 PyKrige==1.7.3
 redis==6.4.0
