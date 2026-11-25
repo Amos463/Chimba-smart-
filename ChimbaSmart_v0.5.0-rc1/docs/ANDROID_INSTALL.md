@@ -6,18 +6,27 @@ requests go to the server URL configured on the login screen.
 
 ## Build and download
 
-Android builds run only in GitHub Actions. Open the successful
-[`Android testing builds`](https://github.com/Amos463/Chimba-smart-/actions/workflows/android-build.yml)
-run for the `market-pilot` branch and download its
-`chimbasmart-capacitor-testing-signed-*` artifact. The artifact includes a debug
-APK, a testing-signed release APK, a testing-signed AAB, and `SHA256SUMS`.
-These testing artifacts are not production-signed.
+Android builds run only in GitHub Actions. The verified build for commit
+`0cc9c97` is [run 45651643751](https://github.com/Amos463/Chimba-smart-/actions/runs/45651643751).
+Download the
+[`chimbasmart-capacitor-testing-signed-4` artifact](https://github.com/Amos463/Chimba-smart-/actions/runs/45651643751/artifacts/15040127397)
+from that run. It contains a debug APK, a testing-signed release APK, a
+testing-signed AAB, and `SHA256SUMS`. These testing artifacts are not
+production-signed. The artifact expires on 2026-12-09.
 
 Before installing, extract the artifact and verify its files:
 
 ```sh
 sha256sum -c SHA256SUMS
 adb install -r chimbasmart-testing-signed.apk
+```
+
+Verified SHA-256 values:
+
+```text
+4f1f39245ed1513cd7e9105682e6b2011139dfd2503e1d171a26d3616e1046e1  chimbasmart-debug.apk
+7c914bd64d651b806799ded6ae9be1c4cf0e7a61f5bf5e394707e52596cbe0d9  chimbasmart-testing-signed.apk
+03391230c711c3d6510c988f74446055d02639a3946eaad4af1abb3417ae91b4  chimbasmart-testing-signed.aab
 ```
 
 Allow installation from the file manager or browser used to download the APK.
