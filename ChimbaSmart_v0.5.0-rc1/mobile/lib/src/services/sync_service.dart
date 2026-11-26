@@ -23,26 +23,34 @@ class SyncService {
  Future<int> pull({required String projectId,int batchSize=200}) async {
    final token=await _token();
    if(token==null) throw StateError('Mtumiaji hajaingia kwenye mfumo.');
-   var cursor=await LocalStore.instance.syncCursor();
+   var cursor=await LocalStore.instance.syncCursor(projectId);
    var imported=0;
    while(true) {
      final r=await _dio.get('/sync/pull',queryParameters:{'project_id':projectId,'cursor':cursor,'limit':batchSize},
        options:Options(headers:{'Authorization':'Bearer $token'}));
      final rows=(r.data['records'] as List).cast<Map<String,dynamic>>();
      for(final row in rows) {
-       if((row['deleted_at_utc'] as String?)!=null) continue;
-       await LocalStore.instance.addRecord(
-         kind:row['record_type'] as String,
-         payload:Map<String,dynamic>.from(row['payload'] as Map),
-         projectId:projectId,
-         crs:row['crs'] as String?,
-         deviceId:'server-pull',
-         syncStatus:'synced',
-         recordUuid:row['record_uuid'] as String);
+       final uuid = row['record_uuid'] as String;
+       if(row['deleted_at_utc'] != null) {
+         await LocalStore.instance.markPulledDeleted(uuid);
+         continue;
+       }
+       await LocalStore.instance.upsertPulledRecord(
+         uuid: uuid,
+         kind: row['record_type'] as String,
+         payload: Map<String,dynamic>.from(row['payload'] as Map),
+         projectId: projectId,
+         crs: row['crs'] as String?,
+         serverVersion: row['server_version'] as int?,
+       );
+       imported++;
      }
-     imported+=rows.length;
-     cursor=(r.data['next_cursor'] as int?)??cursor;
-     await LocalStore.instance.setSyncCursor(cursor);
+     final nextCursor = r.data['next_cursor'] as int?;
+     if(nextCursor == null || nextCursor < cursor) {
+       throw StateError('Cursor ya sync kutoka seva si sahihi.');
+     }
+     cursor = nextCursor;
+     await LocalStore.instance.setSyncCursor(projectId, cursor);
      if(rows.length<batchSize) break;
    }
    return imported;
@@ -51,11 +59,15 @@ class SyncService {
  Future<void> login(String username,String password) async {
   final r=await _dio.post('/auth/login',data:{'username':username,'password':password});
   await saveToken(r.data['access_token'] as String);
+  final refresh = r.data['refresh_token'] as String?;
+  if (refresh != null && refresh.isNotEmpty) {
+    await _secure.write(key: 'refresh_token', value: refresh);
+  }
  }
  Future<int> pushPending({required String projectId, int batchSize=50}) async {
   final token=await _token();
   if(token==null) throw StateError('Mtumiaji hajaingia kwenye mfumo.');
-  final rows=await LocalStore.instance.pending(limit:batchSize);
+  final rows=await LocalStore.instance.pending(projectId:projectId,limit:batchSize);
   if(rows.isEmpty)return 0;
   final records=<Map<String,dynamic>>[];
   for(final row in rows) {
