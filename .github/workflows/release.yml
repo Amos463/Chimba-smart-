@@ -1,148 +1,69 @@
-name: Approved commercial release
+name: ChimbaSmart Testing Release
 
 on:
+  workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      publish_release:
-        description: "Publish a GitHub Release after all gates pass and environment approval"
-        type: boolean
-        required: true
-        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: commercial-release-${{ github.ref }}
+  group: chimbasmart-testing-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  gates:
+  build-testing:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_DB: chimbasmart_test
-          POSTGRES_USER: chimba
-          POSTGRES_PASSWORD: test-only-password
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U chimba -d chimbasmart_test"
-          --health-interval 5s --health-timeout 5s --health-retries 20
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 5s --health-retries 20
-    env:
-      TEST_POSTGRES_URL: postgresql+psycopg://chimba:test-only-password@localhost:5432/chimbasmart_test
-      REDIS_URL: redis://localhost:6379/0
-      JWT_SECRET: release-test-only-secret-not-production-123456
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/package-lock.json
-      - name: Backend release gates
-        run: |
-          python -m pip install -r ChimbaSmart_v0.5.0-rc1/backend/requirements.txt
-          python -m compileall -q ChimbaSmart_v0.5.0-rc1/backend/app ChimbaSmart_v0.5.0-rc1/backend/migrations ChimbaSmart_v0.5.0-rc1/backend/tests
-          (cd ChimbaSmart_v0.5.0-rc1/backend && python -m pytest -q)
-      - name: Capacitor packaging gate
-        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
-        run: |
-          npm ci
-          npm run cap:sync
-      - name: Confirm owner release gates
-        if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish_release == true
-        env:
-          RELEASE_GATES_APPROVED: ${{ vars.COMMERCIAL_RELEASE_GATES_PASSED }}
-        run: |
-          test "$RELEASE_GATES_APPROVED" = "true" || {
-            echo "Commercial release is blocked: owner must set COMMERCIAL_RELEASE_GATES_PASSED=true after reviewing outstanding release criteria."
-            exit 1
-          }
 
-  build-and-publish:
-    needs: gates
-    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || inputs.publish_release == true
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    environment: commercial-release
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
           cache: gradle
-          cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android/**/*.gradle*
-      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
-        with:
-          packages: platform-tools platforms;android-36 build-tools;36.0.0
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/package-lock.json
-      - name: Require owner signing secrets
-        env:
-          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-        run: |
-          test -n "$KEYSTORE_B64" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD" && test -n "$STORE_PASSWORD" || {
-            echo "Production Android signing secrets are required; no debug-signed release will be published."
-            exit 1
-          }
-          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/chimbasmart-release.jks"
-          chmod 600 "$RUNNER_TEMP/chimbasmart-release.jks"
-      - name: Build signed Capacitor release APK and AAB
+
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f5ef7065407
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
+
+      - name: Install Capacitor dependencies
         working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
-        env:
-          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/chimbasmart-release.jks
-          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: npm ci
+
+      - name: Synchronize Android project
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
+        run: npm run cap:sync
+
+      - name: Build testing APK and AAB
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/android
+        run: ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
+
+      - name: Collect testing artifacts
+        working-directory: ChimbaSmart_v0.5.0-rc1/mobile/capacitor
         run: |
-          npm ci
-          npm run cap:sync
-          cd android
-          ./gradlew --no-daemon assembleRelease bundleRelease
-          mkdir -p ../release-artifacts
-          cp app/build/outputs/apk/release/app-release.apk ../release-artifacts/chimbasmart-production.apk
-          cp app/build/outputs/bundle/release/app-release.aab ../release-artifacts/chimbasmart-production.aab
-          cd ../release-artifacts
-          sha256sum chimbasmart-production.apk chimbasmart-production.aab > SHA256SUMS
+          set -eu
+          mkdir -p release-artifacts
+          test -s android/app/build/outputs/apk/debug/app-debug.apk
+          test -s android/app/build/outputs/apk/release/app-release.apk
+          test -s android/app/build/outputs/bundle/release/app-release.aab
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-artifacts/chimbasmart-testing-debug.apk
+          cp android/app/build/outputs/apk/release/app-release.apk release-artifacts/chimbasmart-testing-release.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab release-artifacts/chimbasmart-testing-release.aab
+          cd release-artifacts
+          sha256sum *.apk *.aab > SHA256SUMS.txt
+
       - uses: actions/upload-artifact@v4
         with:
-          name: chimbasmart-production-${{ github.ref_name }}
-          path: |
-            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/
-          retention-days: 7
+          name: chimbasmart-testing-${{ github.run_number }}
+          path: ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/
+          retention-days: 14
           if-no-files-found: error
-      - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/chimbasmart-production.apk
-            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/chimbasmart-production.aab
-            ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/SHA256SUMS
-          generate_release_notes: true

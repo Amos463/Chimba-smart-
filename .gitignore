@@ -24,3 +24,6 @@ ChimbaSmart_v0.5.0-rc1/mobile/capacitor/release-artifacts/
 *.aab
 *.keystore
 *.jks
+
+# Local release verification environment
+.venv-release/
