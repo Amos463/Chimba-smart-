@@ -7,7 +7,23 @@ class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @overri
 class _HomeScreenState extends State<HomeScreen> {
   int count=0; String sync='Data huhifadhiwa kwenye kifaa'; bool busy=false;
   @override void initState(){super.initState(); _load();}
-  Future<void> _load() async { final n=await LocalStore.instance.countRecords(); if(mounted)setState(()=>count=n); }
+  Future<void> _load() async {
+    try {
+      final n = await LocalStore.instance.countRecords();
+      if (mounted) {
+        setState(() {
+          count = n;
+          sync = 'Data huhifadhiwa kwenye kifaa';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          sync = 'Hifadhi ya ndani haipatikani kwa sasa';
+        });
+      }
+    }
+  }
   Future<void> _capture() async {
     setState(()=>busy=true);
     try {
