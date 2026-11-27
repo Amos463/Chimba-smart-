@@ -154,11 +154,75 @@ class LocalStore {
           "SELECT COUNT(*) FROM records WHERE sync_status IN ('pending','retry')")) ??
       0;
 
-  Future<List<Map<String, dynamic>>> pending({int limit = 100}) async =>
-      (await db).query('records',
-          where: "sync_status IN ('pending','retry')",
-          orderBy: 'created_at_utc',
-          limit: limit);
+  Future<List<Map<String, dynamic>>> pending({
+    required String projectId,
+    int limit = 100,
+  }) async =>
+      (await db).query(
+        'records',
+        where: "project_id=? AND sync_status IN ('pending','retry')",
+        whereArgs: [projectId],
+        orderBy: 'created_at_utc',
+        limit: limit,
+      );
+
+  Future<bool> upsertPulledRecord({
+    required String uuid,
+    required String projectId,
+    required String kind,
+    required Map<String, dynamic> payload,
+    required String? crs,
+    required int? serverVersion,
+  }) async {
+    final d = await db;
+    final existing = await d.query(
+      'records',
+      columns: ['sync_status'],
+      where: 'record_uuid=?',
+      whereArgs: [uuid],
+      limit: 1,
+    );
+
+    // Never overwrite unsynced field work with a server copy.
+    if (existing.isNotEmpty &&
+        ['pending', 'retry', 'conflict'].contains(existing.first['sync_status'])) {
+      return false;
+    }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    await d.insert(
+      'records',
+      {
+        'record_uuid': uuid,
+        'project_id': projectId,
+        'record_type': kind,
+        'payload_json': jsonEncode(payload),
+        'created_at_utc': now,
+        'updated_at_utc': now,
+        'device_id': 'server-pull',
+        'source_method': 'server_sync',
+        'crs': crs,
+        'sync_status': 'synced',
+        'server_version': serverVersion,
+        'last_error': null,
+        'deleted_at_utc': null,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    return true;
+  }
+
+  Future<void> markPulledDeleted(String uuid) async {
+    await (await db).update(
+      'records',
+      {
+        'sync_status': 'deleted',
+        'deleted_at_utc': DateTime.now().toUtc().toIso8601String(),
+      },
+      where: 'record_uuid=? AND sync_status NOT IN (?, ?, ?)',
+      whereArgs: [uuid, 'pending', 'retry', 'conflict'],
+    );
+  }
 
   Future<List<Map<String, dynamic>>> pendingAttachments({int limit = 20}) async =>
       (await db).query('attachments',
@@ -200,12 +264,12 @@ class LocalStore {
         whereArgs: [uuid],
       );
 
-  Future<void> setSyncCursor(int cursor) async {
+  Future<void> setSyncCursor(String projectId, int cursor) async {
     final d = await db;
     await d.insert(
       'sync_state',
       {
-        'key': 'server_cursor',
+        'key': 'server_cursor:$projectId',
         'value': cursor.toString(),
         'updated_at_utc': DateTime.now().toUtc().toIso8601String(),
       },
@@ -213,11 +277,11 @@ class LocalStore {
     );
   }
 
-  Future<int> syncCursor() async {
+  Future<int> syncCursor(String projectId) async {
     final rows = await (await db).query(
       'sync_state',
       where: 'key=?',
-      whereArgs: ['server_cursor'],
+      whereArgs: ['server_cursor:$projectId'],
     );
     if (rows.isEmpty) return 0;
     return int.tryParse(rows.first['value'] as String) ?? 0;

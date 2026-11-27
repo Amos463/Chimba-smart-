@@ -7,7 +7,23 @@ class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @overri
 class _HomeScreenState extends State<HomeScreen> {
   int count=0; String sync='Data huhifadhiwa kwenye kifaa'; bool busy=false;
   @override void initState(){super.initState(); _load();}
-  Future<void> _load() async { final n=await LocalStore.instance.countRecords(); if(mounted)setState(()=>count=n); }
+  Future<void> _load() async {
+    try {
+      final n = await LocalStore.instance.countRecords();
+      if (mounted) {
+        setState(() {
+          count = n;
+          sync = 'Data huhifadhiwa kwenye kifaa';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          sync = 'Hifadhi ya ndani haipatikani kwa sasa';
+        });
+      }
+    }
+  }
   Future<void> _capture() async {
     setState(()=>busy=true);
     try {
@@ -37,15 +53,23 @@ class _HomeScreenState extends State<HomeScreen> {
         onPressed:()=>Navigator.of(context).push(MaterialPageRoute(builder:(_)=>const FieldCaptureScreen())),
         icon:const Icon(Icons.assignment_add),label:const Text('Fomu ya sampuli, drillhole au muundo')),
       const SizedBox(height:20),const Text('MODULI ZA UKUSANYAJI',style:TextStyle(fontWeight:FontWeight.w800,letterSpacing:1)),
-      const SizedBox(height:10),const Wrap(spacing:10,runSpacing:10,children:[
-        FeatureTile(icon:Icons.landscape,title:'Miamba',detail:'Lithology, alteration, mineralization'),
-        FeatureTile(icon:Icons.explore,title:'Miundo',detail:'Strike, dip, trend, plunge'),
-        FeatureTile(icon:Icons.science,title:'Sampuli',detail:'Sample identity na assay'),
-        FeatureTile(icon:Icons.vertical_align_bottom,title:'Drillholes',detail:'Collar, survey, intervals'),
-        FeatureTile(icon:Icons.sensors,title:'Geophysics',detail:'Vipimo na raw files'),
-        FeatureTile(icon:Icons.map,title:'GIS',detail:'CRS, layers, raster/vector'),
+      const SizedBox(height:10),Wrap(spacing:10,runSpacing:10,children:[
+        FeatureTile(icon:Icons.landscape,title:'Miamba',detail:'Lithology, alteration, mineralization',onTap:()=>_openModule('lithology')),
+        FeatureTile(icon:Icons.explore,title:'Miundo',detail:'Strike, dip, trend, plunge',onTap:()=>_openModule('orientation')),
+        FeatureTile(icon:Icons.science,title:'Sampuli',detail:'Sample identity na assay',onTap:()=>_openModule('sample')),
+        FeatureTile(icon:Icons.vertical_align_bottom,title:'Drillholes',detail:'Collar, survey, intervals',onTap:()=>_openModule('collar')),
+        FeatureTile(icon:Icons.sensors,title:'Geophysics',detail:'Rekodi za msingi za vipimo',onTap:()=>_openModule('geophysics_observation')),
+        FeatureTile(icon:Icons.map,title:'GIS',detail:'Rekodi za msingi za GIS',onTap:()=>_openModule('gis_feature')),
       ]),
       const SizedBox(height:18),Text(sync,style:Theme.of(context).textTheme.bodySmall),
     ]));
+  void _openModule(String type) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => FieldCaptureScreen(initialType: type),
+      ),
+    ).then((_) => _load());
+  }
+
   Widget _metric(String a,String b)=>Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text(a,style:const TextStyle(color:Colors.black54)),const SizedBox(height:6),Text(b,style:const TextStyle(fontWeight:FontWeight.bold,fontSize:18))])));
 }
