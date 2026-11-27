@@ -17,6 +17,7 @@ class _FieldCaptureScreenState extends State<FieldCaptureScreen> {
   final _description = TextEditingController();
   final _value = TextEditingController();
   final _unit = TextEditingController(text: 'g/t');
+  final _dip = TextEditingController();
   final _from = TextEditingController();
   final _to = TextEditingController();
   final _depth = TextEditingController();
@@ -34,16 +35,27 @@ class _FieldCaptureScreenState extends State<FieldCaptureScreen> {
   bool _saving = false;
 
   Future<void> _gps() async {
-    final position = await LocationService.getCurrentPosition();
-    if (!mounted) return;
-    setState(() {
-      _lat = position?.latitude;
-      _lon = position?.longitude;
-      _accuracy = position?.accuracy;
-    });
-    if (position == null) {
+    try {
+      final position = await LocationService.getCurrentPosition();
+      if (!mounted) return;
+
+      setState(() {
+        _lat = position?.latitude;
+        _lon = position?.longitude;
+        _accuracy = position?.accuracy;
+      });
+
+      if (position == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('GPS haijapatikana. Ruhusu eneo na ujaribu tena.'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('GPS haijapatikana. Ruhusu eneo na ujaribu tena.')),
+        SnackBar(content: Text('GPS imeshindikana: $e')),
       );
     }
   }
@@ -55,7 +67,9 @@ class _FieldCaptureScreenState extends State<FieldCaptureScreen> {
     final common = <String, dynamic>{
       'latitude': _lat,
       'longitude': _lon,
-      'gps_accuracy_m': _accuracy,
+            'lat': _lat,
+      'lon': _lon,
+'gps_accuracy_m': _accuracy,
       'captured_at': DateTime.now().toUtc().toIso8601String(),
     };
 
@@ -103,7 +117,7 @@ class _FieldCaptureScreenState extends State<FieldCaptureScreen> {
           'lat': _lat,
           'lon': _lon,
           'strike_deg': double.tryParse(_value.text.trim()),
-          'dip_deg': double.tryParse(_unit.text.trim()),
+          'dip_deg': double.tryParse(_dip.text.trim()),
           'kind': 'compass',
         };
       case 'lithology':
@@ -167,6 +181,7 @@ class _FieldCaptureScreenState extends State<FieldCaptureScreen> {
     _description.dispose();
     _value.dispose();
     _unit.dispose();
+    _dip.dispose();
     _from.dispose();
     _to.dispose();
     _depth.dispose();
@@ -277,7 +292,7 @@ class _FieldCaptureScreenState extends State<FieldCaptureScreen> {
                 decoration: const InputDecoration(labelText: 'Strike RHR (°)'),
               ),
               TextFormField(
-                controller: _unit,
+                controller: _dip,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Dip (°)'),
               ),

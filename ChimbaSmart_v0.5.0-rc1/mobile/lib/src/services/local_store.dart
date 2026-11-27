@@ -166,7 +166,7 @@ class LocalStore {
         limit: limit,
       );
 
-  Future<void> upsertPulledRecord({
+  Future<bool> upsertPulledRecord({
     required String uuid,
     required String projectId,
     required String kind,
@@ -186,7 +186,7 @@ class LocalStore {
     // Never overwrite unsynced field work with a server copy.
     if (existing.isNotEmpty &&
         ['pending', 'retry', 'conflict'].contains(existing.first['sync_status'])) {
-      return;
+      return false;
     }
 
     final now = DateTime.now().toUtc().toIso8601String();
@@ -209,6 +209,7 @@ class LocalStore {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    return true;
   }
 
   Future<void> markPulledDeleted(String uuid) async {

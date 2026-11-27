@@ -35,15 +35,15 @@ class FeatureTile extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 11, color: Colors.black54)),
                   const SizedBox(height: 8),
-                  const Row(
-                    children: [
-                      Text('Fungua moduli',
-                          style: TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w600)),
-                      SizedBox(width: 4),
-                      Icon(Icons.arrow_forward, size: 13),
-                    ],
+                  const Text(
+                  'Fungua moduli',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
                 ],
               ),
             ),

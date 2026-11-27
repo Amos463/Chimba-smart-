@@ -21,7 +21,8 @@ class SyncService {
  }
 
  Future<int> pull({required String projectId,int batchSize=200}) async {
-   final token=await _token();
+      if(batchSize<1 || batchSize>500) throw ArgumentError('batchSize lazima iwe kati ya 1 na 500.');
+final token=await _token();
    if(token==null) throw StateError('Mtumiaji hajaingia kwenye mfumo.');
    var cursor=await LocalStore.instance.syncCursor(projectId);
    var imported=0;
@@ -35,7 +36,7 @@ class SyncService {
          await LocalStore.instance.markPulledDeleted(uuid);
          continue;
        }
-       await LocalStore.instance.upsertPulledRecord(
+       final applied = await LocalStore.instance.upsertPulledRecord(
          uuid: uuid,
          kind: row['record_type'] as String,
          payload: Map<String,dynamic>.from(row['payload'] as Map),
@@ -43,10 +44,10 @@ class SyncService {
          crs: row['crs'] as String?,
          serverVersion: row['server_version'] as int?,
        );
-       imported++;
+       if(applied) imported++;
      }
      final nextCursor = r.data['next_cursor'] as int?;
-     if(nextCursor == null || nextCursor < cursor) {
+     if(nextCursor == null || nextCursor < cursor || (rows.isNotEmpty && nextCursor == cursor)) {
        throw StateError('Cursor ya sync kutoka seva si sahihi.');
      }
      cursor = nextCursor;
